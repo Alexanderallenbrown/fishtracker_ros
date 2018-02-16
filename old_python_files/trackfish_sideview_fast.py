@@ -79,7 +79,7 @@ width,height= img.shape
 if record_vid==True:
     writer = cv2.VideoWriter('trackfish_output_sideview_fast.mp4', fourcc, fps,(height,width),True)
     #cv2.VideoWriter(outputPath, fourcc, fps,
-# (self.frames[0].shape[1], self.frames[0].shape[0]), True)
+    #(self.frames[0].shape[1], self.frames[0].shape[0]), True)
 
 while ret is not 0:
     ret, img = cap.read()

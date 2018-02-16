@@ -31,7 +31,9 @@ class measure_fish:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback,queue_size=1)#change this to proper name!
         self.fishmarkerpub = rospy.Publisher('/measured_fishmarker',Marker,queue_size=1)
+        self.image_pub = rospy.Publisher('/fishtracker/overlay_image',Image,queue_size=1)
         self.timenow = rospy.Time.now()
+        self.imscale = 1.0
 
         self.cam_pos = (0,0,18*.0254)
         self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
@@ -75,17 +77,37 @@ class measure_fish:
         rectsout=delete(rectsout,badrects,0)
         return rectsout
 
+    def box(self,rects, img):
+        for x1, y1, x2, y2 in rects:
+            cv2.rectangle(img, (x1, y1), (x2, y2), (127, 255, 0), 2)
+        #cv2.imwrite('one.jpg', img);
+
+    def boxBW(self,rects, img):
+        for x1, y1, x2, y2 in rects:
+            cv2.rectangle(img, (x1, y1), (x2, y2), ( 255,255,255), 2)
+        #cv2.imwrite('one.jpg', img);
+
   #this function fires whenever a new image_raw is available. it is our "main loop"
     def callback(self,data):
         try:
-          frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            frame_orig = frame
+            frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+            frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
         except CvBridgeError, e:
-          print e
+            print e
         self.timenow = rospy.Time.now()
-        rows,cols,depth = frame.shape
+        rows,cols = frame.shape
         if rows>0:
             rects,frame = self.detect(frame)
-            print rects
+            self.box(rects, frame_orig)
+        img_out = self.bridge.cv2_to_imgmsg(frame_orig, "bgr8")
+        img_out.header.stamp = rospy.Time.now()
+        try:
+            self.image_pub.publish(img_out)
+        except CvBridgeError as e:
+            print(e)
+
             # fishquat = tf.transformations.quaternion_from_euler(rvecs[0][0][0],rvecs[0][0][1],rvecs[0][0][2])
             # br = tf.TransformBroadcaster()
             # br.sendTransform((tvecs[0][0][0],tvecs[0][0][1],tvecs[0][0][2]),fishquat,self.timenow,'/fish_measured','/camera1')
