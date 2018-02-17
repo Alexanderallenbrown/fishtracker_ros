@@ -1,0 +1,12 @@
+<launch>
+<param name="use_sim_time" value="true" />
+
+  <node name="fish_image_node" pkg = "fishtracker" type = "measure_fish_node.py" respawn = "true" output = "screen">
+  </node>
+
+  <node name="image_view_overlay" pkg="image_view" type="image_view" respawn="false" output="screen">
+    <remap from="image" to="/fishtracker/overlay_image2"/>
+    <param name="autosize" value="true" />
+  </node>
+
+</launch>

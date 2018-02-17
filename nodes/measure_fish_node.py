@@ -28,6 +28,8 @@ class measure_fish:
         #self.K = np.array([[529.8714858851022, 0.0, 836.4563887311622], [0.0, 1547.2605077363528, 83.19276259345895], [0.0, 0.0, 1.0]])
 
         #this is how we get our image in to use openCV
+        self.top_crop = rospy.get_param('top_crop',100)
+        self.bottom_crop = rospy.get_param('bottom_crop',150)
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback,queue_size=1)#change this to proper name!
         self.fishmarkerpub = rospy.Publisher('/measured_fishmarker',Marker,queue_size=1)
@@ -49,7 +51,7 @@ class measure_fish:
         #rejectLevels??
         #maxSize=(200,100),
         # rects = cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=24,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.5, minNeighbors=15,  minSize=(5,5),maxSize=(150,100),flags=cv2.CASCADE_SCALE_IMAGE)
+        rects = self.cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=7,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
         if len(rects) == 0:
             return [], img
         rects2=self.cleanRects(rects)
@@ -91,9 +93,12 @@ class measure_fish:
     def callback(self,data):
         try:
             frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            he,wi,de = frame.shape
+            frame = frame[self.top_crop:he-self.bottom_crop,:]
             frame_orig = frame
             frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
+        
         except CvBridgeError, e:
             print e
         self.timenow = rospy.Time.now()
