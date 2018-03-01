@@ -56,7 +56,7 @@ class measure_fish:
         self.num_fish = rospy.get_param('num_fish',4)
         self.kalman_measurement = array([[1.,0.,0.,0.],[0.,0.,1.,0.]])
         self.kalman_transition = np.array([[1.,1.,0.,0.],[0.,1.,0.,0.],[0.,0.,1.,1.],[0.,0.,0.,1]])
-        self.kalman_processnoise = 1. * np.eye(4)
+        self.kalman_processnoise = .2 * np.eye(4)
         self.kalman_measurementnoise = 100. * np.eye(2)
         self.kalman_errorcovpost = 1. * np.ones((4, 4))
         self.kalman_statepost = 0.1 * np.random.randn(4, 1)
@@ -91,6 +91,7 @@ class measure_fish:
                 #print "pose shape is "+str(pose.shape)
                 if(pose[0,0]<0 or pose[2,0]<0 or pose[0,0]>480 or pose[2,0]>480 or self.steps_without_measurement[k]>30):
                     fishtodelete.append(k)
+                    "deleting fish..."
             # print fishtodelete
             # print "fishtodelete above"
             self.pose_estimates = [x for i,x in enumerate(self.pose_estimates) if i not in fishtodelete]
@@ -98,17 +99,63 @@ class measure_fish:
             self.steps_without_measurement = [x for i, x in enumerate(self.steps_without_measurement) if i not in fishtodelete]
         # #print "filters now" + str(self.filters)
 
+        #first, let's determine which measurement belongs to which fish
+        #find distance from each measurement to each state estimate
+        #initialize aligned measurement vector
+        ameas = []
+        orphanmeas = []
+
+        for k in range(0,len(self.pose_estimates)):
+            ameas.append([])
+        if (len(self.filters)>0 and len(measurements)>0):
+            #print "calculating distances"
+            dists = zeros((len(measurements),len(self.filters)))
+                #TODO I do'nt think this algorithm handles when we have too many measurements...
+            for k in range(0,len(measurements)):
+                for j in range(0,len(self.filters)):
+                    #calculate the distance from this measurement k to this pose estimate j
+                    dists[k,j] = ((measurements[k][0]-self.pose_estimates[j][0])**2+(measurements[k][1]-self.pose_estimates[j][1])**2)**.5
+                #which fish does this measurement belong to?
+                minmeas_index = argmin(dists[k,:])
+                #TODO to handle "too many" measurements, check to see if we already set this, and then check distances?
+                if dists[k,minmeas_index]<self.meas_error_thresh:
+                    if len(ameas[minmeas_index])==0:
+                        ameas[minmeas_index]=[measurements[k][0],measurements[k][1]]
+                    else:
+                        print "adding orphan"
+                        orphanmeas.append([measurements[k][0],measurements[k][1]])
+                else: #code this as an orphan measurement
+                    print "adding orphan"
+                    orphanmeas.append([measurements[k][0],measurements[k][1]])
+            print "aligned measurements"+str(ameas)
+
         #check to see if all fish are being tracked
-        if (len(self.filters)<=self.num_fish):
-            #now check to see if we have more measurements than filters
-            if (len(measurements)>=len(self.filters)):
-                #now add/initialize any filters we are missing
-                for k in range(len(self.filters),min(len(measurements),self.num_fish)):
+        if len(self.filters)==0:
+            for k in range(0,min(len(measurements),self.num_fish)):
                     print "adding more filters"
                     newkf = cv2.KalmanFilter(4,2,0)
                     self.filters.append(cv2.KalmanFilter(4,2,0))#set up a new KF
-                    # self.pose_estimates.append(array([[measurements[k][0]*1.0],[0.],[1.0*measurements[k][1]],[0.]]))
-                    self.pose_estimates.append(array([[0*1.0],[0.],[0*1.0],[0.]]))
+                    self.pose_estimates.append(array([[measurements[k][0]*1.0],[0.],[1.0*measurements[k][1]],[0.]]))
+                    #self.pose_estimates.append(array([[0*1.0],[0.],[0*1.0],[0.]]))
+
+                    self.steps_without_measurement.append(0)
+                    #note the "copy" below... this is NECESSARY or the KF objects will share matrices... ugh.
+                    self.filters[k].transitionMatrix = copy(self.kalman_transition)
+                    self.filters[k].measurementMatrix = copy(self.kalman_measurement)
+                    self.filters[k].processNoiseCov = copy(self.kalman_processnoise)
+                    self.filters[k].measurementNoiseCov = copy(self.kalman_measurementnoise)
+                    self.filters[k].errorCovPost = copy(self.kalman_errorcovpost)
+                    self.filters[k].statePost = copy(self.kalman_statepost)
+        elif (len(self.filters)<=self.num_fish):
+            #now check to see if we have more measurements than filters
+            if (len(measurements)>=len(self.filters)):
+                #now add/initialize any filters we are missing
+                for k in range(0,len(orphanmeas)):
+                    print "adding more filters"
+                    newkf = cv2.KalmanFilter(4,2,0)
+                    self.filters.append(cv2.KalmanFilter(4,2,0))#set up a new KF
+                    self.pose_estimates.append(array([[orphanmeas[k][0]*1.0],[0.],[1.0*orphanmeas[k][1]],[0.]]))
+                    #self.pose_estimates.append(array([[0*1.0],[0.],[0*1.0],[0.]]))
 
                     self.steps_without_measurement.append(0)
                     #note the "copy" below... this is NECESSARY or the KF objects will share matrices... ugh.
@@ -123,50 +170,33 @@ class measure_fish:
         #print "measurements "+str(measurements)
         #print "filters: "+str(len(self.filters))
         #now we need to predict and update on each filter.
-        #first, let's determine which measurement belongs to which fish
-        #find distance from each measurement to each state estimate
-        #initialize aligned measurement vector
-        ameas = []
-        for k in range(0,len(self.pose_estimates)):
-            ameas.append([])
-        if (len(self.filters)>0 and len(measurements)>0):
-            #print "calculating distances"
-            dists = zeros((len(measurements),len(self.filters)))
-                #TODO I do'nt think this algorithm handles when we have too many measurements...
-            for k in range(0,len(measurements)):
-                for j in range(0,len(self.filters)):
-                    #calculate the distance from this measurement k to this pose estimate j
-                    dists[k,j] = ((measurements[k][0]-self.pose_estimates[j][0])**2+(measurements[k][1]-self.pose_estimates[j][1])**2)**.5
-                #which fish does this measurement belong to?
-                minmeas_index = argmin(dists[k,:])
-                #TODO to handle "too many" measurements, check to see if we already set this, and then check distances?
-                if 1:#dists[k,minmeas_index]<self.meas_error_thresh:
-                    ameas[minmeas_index]=[measurements[k][0],measurements[k][1]]
-            print "aligned measurements"+str(ameas)
+        
         #now we actually run the kalman update for each filter, correcting only if we have a meas.
         for k in range(0,len(self.filters)):
             #make a prediction in this kalman filter
             thisfilter = self.filters[k]
             temppos = thisfilter.predict()
             # print "predicted: "+str(self.pose_estimates[k])
-            if len(ameas[k])>0:
-                print "using measurement " +str(ameas[k])
-                print len(ameas[k])
-                # self.pose_estimates[k] = self.filters[k].correct(array([[float(ameas[k][0])],[float(ameas[k][1])]]))
-                measurement = array([[ameas[k][0]*1.0],[1.0*ameas[k][1]]])
-                #innovation = measurement-array([temppos[0]],[temppos[2]])
-                if 1:#(innovation[0]<self.meas_error_thresh and innovation[1]<self.meas_error_thresh):
-                    #print "measurement: "+str(measurement)
-                    temppos=thisfilter.correct(measurement)
-                    self.steps_without_measurement[k]=0
-                #print "corrected: "+str(self.pose_estimates[k])
-            else:
-                self.steps_without_measurement[k]=self.steps_without_measurement[k]+1
-                #self.pose_estimates[k]=thisfilter.correct()
-                #print "did not correct filter " +str(k)
-            #print "temp pos is: " +str(temppos)
-            self.pose_estimates[k] = temppos
-            print "steps without measurement: " + str(self.steps_without_measurement)
+            if len(ameas)>k:
+                print len(ameas),k
+                if len(ameas[k])>0:
+                    print "using measurement " +str(ameas[k])
+                    print len(ameas[k])
+                    # self.pose_estimates[k] = self.filters[k].correct(array([[float(ameas[k][0])],[float(ameas[k][1])]]))
+                    measurement = array([[ameas[k][0]*1.0],[1.0*ameas[k][1]]])
+                    innovation = array([[ameas[k][0]*1.0-temppos[0]],[1.0*ameas[k][1]-temppos[2]]])
+                    if (innovation[0]<self.meas_error_thresh and innovation[1]<self.meas_error_thresh):
+                        #print "measurement: "+str(measurement)
+                        temppos=thisfilter.correct(measurement)
+                        self.steps_without_measurement[k]=0
+                    #print "corrected: "+str(self.pose_estimates[k])
+                else:
+                    self.steps_without_measurement[k]=self.steps_without_measurement[k]+1
+                    #self.pose_estimates[k]=thisfilter.correct()
+                    #print "did not correct filter " +str(k)
+                #print "temp pos is: " +str(temppos)
+                self.pose_estimates[k] = temppos
+                print "steps without measurement: " + str(self.steps_without_measurement)
 
 
     def bgClean(self,frame):
