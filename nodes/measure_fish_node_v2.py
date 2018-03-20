@@ -11,7 +11,7 @@ import rospy
 from std_msgs.msg import *
 from geometry_msgs.msg import *
 #from preview_filter.msg import * #this is very important! we have custom message types defined in this package!!
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 from visualization_msgs.msg import Marker #we will use this message for the perceived fish. then pop it into Rviz
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
@@ -31,7 +31,7 @@ class measure_fish:
         self.top_crop = rospy.get_param('top_crop',100)
         self.bottom_crop = rospy.get_param('bottom_crop',150)
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback,queue_size=1)#change this to proper name!
+        self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed",CompressedImage,self.callback,queue_size=1)#change this to proper name!
         self.fishmarkerpub = rospy.Publisher('/measured_fishmarker',Marker,queue_size=1)
         self.image_pub = rospy.Publisher('/fishtracker/overlay_image',Image,queue_size=1)
         self.timenow = rospy.Time.now()
@@ -117,8 +117,13 @@ class measure_fish:
 
   #this function fires whenever a new image_raw is available. it is our "main loop"
     def callback(self,data):
+        #print "in callback"
         try:
-            frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            #use the np_arr thing if subscribing to compressed image
+            #frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            np_arr = np.fromstring(data.data, np.uint8)
+            # Decode to cv2 image and store
+            frame= cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             he,wi,de = frame.shape
             frame = frame[self.top_crop:he-self.bottom_crop,:]
             frame_orig = frame
