@@ -30,6 +30,16 @@ class measure_fish:
         #self.D = np.array([-0.40541413163196455, 0.09621547958919903, 0.029070017586547533, 0.005280797822816339, 0.0])
         #self.K = np.array([[529.8714858851022, 0.0, 836.4563887311622], [0.0, 1547.2605077363528, 83.19276259345895], [0.0, 0.0, 1.0]])
         # get the file path for rospy_tutorials
+        self.cam_pos = (0,0,18*.0254)
+        self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
+        self.robotsize = [140,65]
+        self.robotOffsetY = 40;
+        self.robotOffsetX = 100;
+        self.robotPixelX = 0
+        self.robotPixelY = 0
+        self.robotScale = 16.75
+        self.robotX = 0
+
         rospack = rospkg.RosPack()
         self.package_path=rospack.get_path('fishtracker')
 
@@ -38,19 +48,31 @@ class measure_fish:
         self.top_crop = rospy.get_param('top_crop',100)
         self.bottom_crop = rospy.get_param('bottom_crop',150)
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed",CompressedImage,self.callback,queue_size=1)#change this to proper name!
-        sel.robot_sub = rospy.Subscriber("/tetherish/robotinfo",self.robotCallback,queue_size=1)
         self.fishmarkerpub = rospy.Publisher('/measured_fishmarker',Marker,queue_size=1)
         self.image_pub = rospy.Publisher('/fishtracker/overlay_image',Image,queue_size=1)
+        self.fishlist = array([])
+        self.robotlist = array([])
+        self.robotPixelPub = rospy.Publisher('/fishtracker/robot_pixel_pos',Int32MultiArray,queue_size=1)
+        self.fishPosPub = rospy.Publisher('/fishtracker/fish_positions',Int32MultiArray,queue_size=1)
+        self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed",CompressedImage,self.callback,queue_size=1)#change this to proper name!
+        self.robot_sub = rospy.Subscriber("/tetherfish/robotinfo",TetherFishMsg,self.robotCallback)
+
         self.timenow = rospy.Time.now()
         self.imscale = 1.0
 
-        self.cam_pos = (0,0,18*.0254)
-        self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
-        self.robotsize = [55,40]
+
+
+
 
         
 
+        
+    def robotCallback(self,data):
+        #print "updating robot pos"
+        self.robotX = data.robotpos
+        self.robotPixelY = int(self.robotOffsetY)
+        self.robotPixelX = int(self.robotX*self.robotScale+self.robotOffsetX)
+        #self.robotlist = [self.robotPixelX,self.robotPixelY]
 
     def detect(self,img):
         #print cascade
@@ -97,10 +119,42 @@ class measure_fish:
                 cv2.rectangle(img, (x1, y1), (x2, y2), (127, 255, 0), 2)
         #cv2.imwrite('one.jpg', img);
 
+    def fillFishPositions(self,rects,img):
+        self.fishlist = []
+        self.robotlist = [self.robotPixelX,self.robotPixelY]
+        for x1,y1,x2,y2 in rects:
+            cx = int((x1+x2)/2.0)
+            cy = int((y1+y2)/2.0)
+            if ((x1>(self.robotPixelX-self.robotsize[0]/2)) and (x2<self.robotPixelX+self.robotsize[0]/2) and (x2<self.robotPixelX+self.robotsize[0]/2) and (y2<(self.robotPixelY+self.robotsize[1]/2))) :
+                #print "found rect inside robot"
+                pass
+            else:
+                self.fishlist.append(int(cx))
+                self.fishlist.append(int(cy))
+                cv2.circle(img,(cx,cy),10,(0,255,0),2)
+        cv2.circle(img,(int(self.robotPixelX),int(self.robotPixelY)),10,(0,0,255),2)
+
+        fishpos_msg = Int32MultiArray(data=self.fishlist)
+        #fishpos_msg.header.stamp = rospy.Time.now()
+        robotpos_msg = Int32MultiArray(data=self.robotlist)
+        #robotpos_msg.header.stamp = rospy.Time.now()
+        self.fishPosPub.publish(fishpos_msg)
+        self.robotPixelPub.publish(fishpos_msg)
+
+
+
+
     def boxBW(self,rects, img):
         for x1, y1, x2, y2 in rects:
             cv2.rectangle(img, (x1, y1), (x2, y2), ( 255,255,255), 2)
         #cv2.imwrite('one.jpg', img);
+
+    def drawRobot(self,img):
+        x1 = self.robotPixelX - self.robotsize[0]/2
+        x2 = self.robotPixelX + self.robotsize[0]/2
+        y1 = self.robotPixelY-self.robotsize[1]/2
+        y2 = self.robotPixelY+self.robotsize[1]/2
+        cv2.rectangle(img,(x1,y1),(x2,y2),(0,0,255),2)
 
   #this function fires whenever a new image_raw is available. it is our "main loop"
     def callback(self,data):
@@ -112,7 +166,7 @@ class measure_fish:
             frame = frame[self.top_crop:he-self.bottom_crop,:]
             frame_orig = frame
             frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
+            #frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
         
         except CvBridgeError, e:
             print e
@@ -122,7 +176,10 @@ class measure_fish:
             rects,frame = self.detect(frame)
             #if rects is not None:
             #    rects = rects.sort()
-            self.box(rects, frame_orig)
+            #self.box(rects, frame_orig)
+            #self.drawRobot(frame_orig)
+            self.fillFishPositions(rects,frame_orig)
+
         img_out = self.bridge.cv2_to_imgmsg(frame_orig, "bgr8")
         img_out.header.stamp = rospy.Time.now()
         try:
