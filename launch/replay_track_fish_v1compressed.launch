@@ -1,0 +1,20 @@
+<launch>
+<param name="use_sim_time" value="true" />
+
+
+  <node name="fish_image_node" pkg = "fishtracker" type = "measure_fish_node_compressed.py" respawn = "true" output = "screen">
+  </node>
+
+  <param name="/fish_image_node/image_transport" value="compressed"/>
+
+  <node name="image_view_overlay" pkg="image_view" type="image_view" respawn="false" output="screen" args="_image_transport:=raw">
+    <remap from="image" to="/fishtracker/overlay_image"/>
+    <param name="autosize" value="true" />
+  </node>
+
+  <node name="image_view_original" pkg="image_view" type="image_view" respawn="false" output="screen" args="_image_transport:=compressed">
+    <remap from="image" to="/usb_cam/image_raw"/>
+    <param name="autosize" value="true" />
+  </node>
+
+</launch>
