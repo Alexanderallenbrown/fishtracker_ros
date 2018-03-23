@@ -44,7 +44,7 @@ class measure_fish:
         self.package_path=rospack.get_path('fishtracker')
 
         #this is how we get our image in to use openCV
-        self.cascade = cv2.CascadeClassifier(self.package_path+'/cascade/fish_sideview_1.xml')#'package://fishtracker/meshes/fishbody.dae'
+        self.cascade = cv2.CascadeClassifier(self.package_path+'/cascade/cascade_mar232018.xml')#'package://fishtracker/meshes/fishbody.dae'
         self.top_crop = rospy.get_param('top_crop',100)
         self.bottom_crop = rospy.get_param('bottom_crop',150)
         self.bridge = CvBridge()
