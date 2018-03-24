@@ -80,7 +80,7 @@ class measure_fish:
         #maxSize=(200,100),
         # rects = cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=24,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
         # rects = self.cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=7,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=2,  minSize=(1,1),maxSize=(50,80),flags=cv2.CASCADE_SCALE_IMAGE)
+        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=5,  minSize=(1,1),maxSize=(50,80),flags=cv2.CASCADE_SCALE_IMAGE)
 
         if len(rects) == 0:
             return [], img
@@ -125,13 +125,14 @@ class measure_fish:
         for x1,y1,x2,y2 in rects:
             cx = int((x1+x2)/2.0)
             cy = int((y1+y2)/2.0)
-            if ((x1>(self.robotPixelX-self.robotsize[0]/2)) and (x2<self.robotPixelX+self.robotsize[0]/2) and (x2<self.robotPixelX+self.robotsize[0]/2) and (y2<(self.robotPixelY+self.robotsize[1]/2))) :
+            if ((cx>(self.robotPixelX-self.robotsize[0]/2)) and (cx<self.robotPixelX+self.robotsize[0]/2) and (cy<self.robotPixelX-self.robotsize[0]/2) and (cy<(self.robotPixelY+self.robotsize[1]/2))) :
                 #print "found rect inside robot"
                 pass
             else:
                 self.fishlist.append(int(cx))
                 self.fishlist.append(int(cy))
                 cv2.circle(img,(cx,cy),10,(0,255,0),2)
+
         cv2.circle(img,(int(self.robotPixelX),int(self.robotPixelY)),10,(0,0,255),2)
 
         fishpos_msg = Int32MultiArray(data=self.fishlist)
