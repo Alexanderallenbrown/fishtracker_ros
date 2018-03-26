@@ -140,7 +140,7 @@ class measure_fish:
         robotpos_msg = Int32MultiArray(data=self.robotlist)
         #robotpos_msg.header.stamp = rospy.Time.now()
         self.fishPosPub.publish(fishpos_msg)
-        self.robotPixelPub.publish(fishpos_msg)
+        self.robotPixelPub.publish(robotpos_msg)
 
 
 
