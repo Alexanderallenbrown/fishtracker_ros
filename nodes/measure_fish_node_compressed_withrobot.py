@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #Alex Brown
-#2018
+#20183
 
 import roslib
 roslib.load_manifest('fishtracker')
@@ -33,8 +33,8 @@ class measure_fish:
         self.cam_pos = (0,0,18*.0254)
         self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
         self.robotsize = [140,65]
-        self.robotOffsetY = 40;
-        self.robotOffsetX = 100;
+        self.robotOffsetY =37#28#41#45#47#40#60;#40;
+        self.robotOffsetX = 30#338#312#92#284#52#266#55;#45;#100;
         self.robotPixelX = 0
         self.robotPixelY = 0
         self.robotScale = 16.75
@@ -59,6 +59,8 @@ class measure_fish:
 
         self.timenow = rospy.Time.now()
         self.imscale = 1.0
+        self.robotPixelX = self.robotOffsetX
+        self.robotPixelY = self.robotOffsetY
 
 
 
@@ -80,7 +82,7 @@ class measure_fish:
         #maxSize=(200,100),
         # rects = cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=24,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
         # rects = self.cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=7,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=5,  minSize=(1,1),maxSize=(50,80),flags=cv2.CASCADE_SCALE_IMAGE)
+        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=7,  minSize=(1,1),maxSize=(60,90),flags=cv2.CASCADE_SCALE_IMAGE)
 
         if len(rects) == 0:
             return [], img
@@ -127,6 +129,10 @@ class measure_fish:
             cy = int((y1+y2)/2.0)
             if ((cx>(self.robotPixelX-self.robotsize[0]/2)) and (cx<self.robotPixelX+self.robotsize[0]/2) and (cy<self.robotPixelX-self.robotsize[0]/2) and (cy<(self.robotPixelY+self.robotsize[1]/2))) :
                 #print "found rect inside robot"
+                pass
+            elif cx<80 and cy<50:
+                pass
+            elif cx>540 and cy<50:
                 pass
             else:
                 self.fishlist.append(int(cx))
