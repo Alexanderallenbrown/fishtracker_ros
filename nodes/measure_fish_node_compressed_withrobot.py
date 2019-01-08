@@ -33,10 +33,10 @@ class measure_fish:
         self.cam_pos = (0,0,18*.0254)
         self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
         self.robotsize = [140,65]
-        self.robotOffsetY = 40;
-        self.robotOffsetX = 100;
-        self.robotPixelX = 0
-        self.robotPixelY = 0
+        self.robotOffsetY = 90;
+        self.robotOffsetX = 330;
+        self.robotPixelX = 330;
+        self.robotPixelY = 90
         self.robotScale = 16.75
         self.robotX = 0
 
@@ -46,7 +46,7 @@ class measure_fish:
         #this is how we get our image in to use openCV
         self.cascade = cv2.CascadeClassifier(self.package_path+'/cascade/cascade_mar232018.xml')#'package://fishtracker/meshes/fishbody.dae'
         self.top_crop = rospy.get_param('top_crop',100)
-        self.bottom_crop = rospy.get_param('bottom_crop',150)
+        self.bottom_crop = rospy.get_param('bottom_crop',100)
         self.bridge = CvBridge()
         self.fishmarkerpub = rospy.Publisher('/measured_fishmarker',Marker,queue_size=1)
         self.image_pub = rospy.Publisher('/fishtracker/overlay_image',Image,queue_size=1)
