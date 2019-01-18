@@ -12,9 +12,9 @@
     <param name="autosize" value="true" />
   </node>
 
-  <node name="image_view_original" pkg="image_view" type="image_view" respawn="false" output="screen" args="_image_transport:=compressed">
+<!--   <node name="image_view_original" pkg="image_view" type="image_view" respawn="false" output="screen" args="_image_transport:=compressed">
     <remap from="image" to="/usb_cam/image_raw"/>
     <param name="autosize" value="true" />
-  </node>
+  </node> -->
 
 </launch>
