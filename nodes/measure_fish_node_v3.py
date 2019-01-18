@@ -56,7 +56,7 @@ class measure_fish:
         self.num_fish = rospy.get_param('num_fish',4)
         self.kalman_measurement = array([[1.,0.,0.,0.],[0.,0.,1.,0.]])
         self.kalman_transition = np.array([[1.,1.,0.,0.],[0.,1.,0.,0.],[0.,0.,1.,1.],[0.,0.,0.,1]])
-        self.kalman_processnoise = .2 * np.eye(4)
+        self.kalman_processnoise = 10. * np.eye(4)
         self.kalman_measurementnoise = 100. * np.eye(2)
         self.kalman_errorcovpost = 1. * np.ones((4, 4))
         self.kalman_statepost = 0.1 * np.random.randn(4, 1)
@@ -178,7 +178,7 @@ class measure_fish:
             temppos = thisfilter.predict()
             # print "predicted: "+str(self.pose_estimates[k])
             if len(ameas)>k:
-                print len(ameas),k
+                # print len(ameas),k
                 if len(ameas[k])>0:
                     print "using measurement " +str(ameas[k])
                     print len(ameas[k])
@@ -190,13 +190,13 @@ class measure_fish:
                         temppos=thisfilter.correct(measurement)
                         self.steps_without_measurement[k]=0
                     #print "corrected: "+str(self.pose_estimates[k])
-                else:
-                    self.steps_without_measurement[k]=self.steps_without_measurement[k]+1
-                    #self.pose_estimates[k]=thisfilter.correct()
-                    #print "did not correct filter " +str(k)
-                #print "temp pos is: " +str(temppos)
-                self.pose_estimates[k] = temppos
-                print "steps without measurement: " + str(self.steps_without_measurement)
+            else:
+                self.steps_without_measurement[k]=self.steps_without_measurement[k]+1
+                #self.pose_estimates[k]=thisfilter.correct()
+                #print "did not correct filter " +str(k)
+            #print "temp pos is: " +str(temppos)
+            self.pose_estimates[k] = temppos
+            print "steps without measurement: " + str(self.steps_without_measurement)
 
 
     def bgClean(self,frame):
