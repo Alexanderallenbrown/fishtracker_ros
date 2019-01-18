@@ -31,7 +31,7 @@ class measure_fish:
         self.top_crop = rospy.get_param('top_crop',100)
         self.bottom_crop = rospy.get_param('bottom_crop',150)
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw/compressed",CompressedImage,self.callback,queue_size=1)#change this to proper name!
+        self.image_sub = rospy.Subscriber("/camera2/usb_cam2/image_raw/compressed",CompressedImage,self.callback,queue_size=1)#change this to proper name!
         self.fishmarkerpub = rospy.Publisher('/measured_fishmarker',Marker,queue_size=1)
         self.image_pub = rospy.Publisher('/fishtracker/overlay_image',Image,queue_size=1)
         self.timenow = rospy.Time.now()
