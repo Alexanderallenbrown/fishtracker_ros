@@ -48,7 +48,7 @@ class measure_fish:
         self.maxw = 400
         self.minh = 50
         self.maxh = 400
-        self.kernel = np.ones((7,7),np.uint8)
+        self.kernel = np.ones((9,9),np.uint8)
         rospack = rospkg.RosPack()
         # get the file path for rospy_tutorials
         self.package_path=rospack.get_path('fishtracker')
@@ -152,7 +152,7 @@ class measure_fish:
             im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
             #contours = sorted(contours, key=cv2.contourArea,reverse=True)[:10]
             #print "countour shape"
-            contours = contours[0]
+            #contours = contours[0]
             #print contours
             
             
@@ -163,7 +163,7 @@ class measure_fish:
                     #print cnt.shape
                     #print cnt
                     x,y,w,h = cv2.boundingRect(array(cnt))
-                    print x,y,w,h
+                    #print x,y,w,h
                     if ((w<self.maxw) and (w>self.minw) and (h<self.maxh) and (h>self.minh)):
                         #print k,x,y,w,h
                         #frame = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,0,255),2)
@@ -173,13 +173,13 @@ class measure_fish:
                         else:
                             rects = np.array([[x,y,w+x,h+y]])
             
-            print rects
+            #print rects
             if rects is not None:
                 rectsout = self.cleanRects(rects)
                 #print rects.shape
                 self.box(rectsout,frame)
             #cv2.imshow('frame',frame)
-            cv2.imshow('canny',cannycolor)
+            #cv2.imshow('canny',cannycolor)
 
             cv2.waitKey(1)
             #rects,frame = self.detect(frame)
