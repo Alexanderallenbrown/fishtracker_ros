@@ -45,9 +45,9 @@ class measure_fish:
         self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
         self.fgbg = cv2.createBackgroundSubtractorMOG2()
         self.minw = 50
-        self.maxw = 400
+        self.maxw = 250
         self.minh = 50
-        self.maxh = 400
+        self.maxh = 250
         self.kernel = np.ones((9,9),np.uint8)
         rospack = rospkg.RosPack()
         # get the file path for rospy_tutorials
@@ -179,7 +179,7 @@ class measure_fish:
                 #print rects.shape
                 self.box(rectsout,frame)
             #cv2.imshow('frame',frame)
-            #cv2.imshow('canny',cannycolor)
+            cv2.imshow('canny',cannycolor)
 
             cv2.waitKey(1)
             #rects,frame = self.detect(frame)
