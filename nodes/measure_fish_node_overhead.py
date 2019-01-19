@@ -175,7 +175,7 @@ class measure_fish:
             
             #print rects
             if rects is not None:
-                rectsout = self.cleanRects(rects)
+                rectsout = self.cleanRects2(rects)
                 #print rects.shape
                 self.box(rectsout,frame)
             #cv2.imshow('frame',frame)
