@@ -54,7 +54,7 @@ class measure_fish:
         #maxSize=(200,100),
         # rects = cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=24,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
         # rects = self.cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=7,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=2,  minSize=(1,1),maxSize=(50,80),flags=cv2.CASCADE_SCALE_IMAGE)
+        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=10,  minSize=(1,1),maxSize=(50,80),flags=cv2.CASCADE_SCALE_IMAGE)
 
         if len(rects) == 0:
             return [], img

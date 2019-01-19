@@ -20,6 +20,10 @@ import math
 import cv2
 import tf
 import rospkg
+from skimage import data, color, img_as_ubyte
+from skimage.feature import canny
+from skimage.transform import hough_ellipse
+from skimage.draw import ellipse_perimeter
 
 class measure_fish:
 
@@ -40,29 +44,14 @@ class measure_fish:
         self.cam_pos = (0,0,18*.0254)
         self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
         self.fgbg = cv2.createBackgroundSubtractorMOG2()
-        self.minw = 10
-        self.maxw = 100
-        self.minh = 10
-        self.maxh = 100
-        self.kernel = np.ones((401,401),np.uint8)
+        self.minw = 50
+        self.maxw = 400
+        self.minh = 50
+        self.maxh = 400
+        self.kernel = np.ones((7,7),np.uint8)
         rospack = rospkg.RosPack()
         # get the file path for rospy_tutorials
         self.package_path=rospack.get_path('fishtracker')
-
-        self.cascade = cv2.CascadeClassifier(self.package_path+'/cascade/fish_sideview_1.xml')#'package://fishtracker/meshes/fishbody.dae'
-
-    def detect(self,img):
-        #print cascade
-        #rejectLevels??
-        #maxSize=(200,100),
-        # rects = cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=24,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.6, minNeighbors=7,  minSize=(20,20),maxSize=(200,100),flags=cv2.CASCADE_SCALE_IMAGE)
-        if len(rects) == 0:
-            return [], img
-        rects2=self.cleanRects(rects)
-        rects2[:, 2:] += rects2[:, :2]
-
-        return rects2, img
 
     def cleanRects(self,rects):
         #gets rid of any rects that are fully contained within another
@@ -138,27 +127,43 @@ class measure_fish:
         if rows>0:
             #fgmask = self.fgbg.apply(frame)
             gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            gray = cv2.bilateralFilter(gray, 11, 17, 17)
-            fgmask = self.fgbg.apply(gray)
-            
+            canny = cv2.Canny(gray,100,200)
+            canny = cv2.dilate(canny,self.kernel,iterations=1)
+            cannycolor = cv2.cvtColor(canny,cv2.COLOR_GRAY2BGR)
+            #gray = cv2.bilateralFilter(gray, 11, 17, 17)
+            #fgmask = self.fgbg.apply(gray)
+
+            #use hough to find ellipses
+            # result = hough_ellipse(canny, accuracy=20, threshold=250,min_size=100, max_size=120)
+            # result.sort(order='accumulator')
+
+            # # Estimated parameters for the ellipse
+            # best = list(result[-1])
+            # yc, xc, a, b = [int(round(x)) for x in best[1:5]]
+            # orientation = best[5]
+            # print xc,yc,a,b
+                        
             #cv2.dilate(fgmask,self.kernel,iterations=1)
-            cv2.imshow('pre canny',fgmask)
+            #cv2.imshow('pre canny',fgmask)
             #fgmask = cv2.Canny(fgmask, 30, 200)
             #fgmask = cv2.Canny(fgmask, 30, 200)
             #http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
             #http://opencvpython.blogspot.com/2012/06/hi-this-article-is-tutorial-which-try.html
-            im,contours,hier = cv2.findContours(fgmask.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+            im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
             #contours = sorted(contours, key=cv2.contourArea,reverse=True)[:10]
             #print "countour shape"
-            #contours = contours[0]
+            contours = contours[0]
+            #print contours
             
-            #cv2.drawContours(frame,np.array(contours[0]),-1,(0,255,0),5)
+            
             if(len(contours)>0):
+                cv2.drawContours(cannycolor,contours,-1,(0,255,0),5)
                 for k in range(0,len(contours)):
                     cnt = contours[k]
                     #print cnt.shape
                     #print cnt
                     x,y,w,h = cv2.boundingRect(array(cnt))
+                    print x,y,w,h
                     if ((w<self.maxw) and (w>self.minw) and (h<self.maxh) and (h>self.minh)):
                         #print k,x,y,w,h
                         #frame = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,0,255),2)
@@ -168,12 +173,13 @@ class measure_fish:
                         else:
                             rects = np.array([[x,y,w+x,h+y]])
             
+            print rects
             if rects is not None:
                 rectsout = self.cleanRects(rects)
                 #print rects.shape
                 self.box(rectsout,frame)
-            cv2.imshow('frame',frame)
-            cv2.imshow('mask',fgmask)
+            #cv2.imshow('frame',frame)
+            cv2.imshow('canny',cannycolor)
 
             cv2.waitKey(1)
             #rects,frame = self.detect(frame)
