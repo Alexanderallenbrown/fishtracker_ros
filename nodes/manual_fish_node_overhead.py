@@ -78,7 +78,9 @@ class measure_fish:
             # Decode to cv2 image and store
             frame= cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             he,wi,de = frame.shape
+
             frame = frame[self.top_crop:he-self.bottom_crop,:]
+            frame_orig = frame.copy()
 
         except CvBridgeError, e:
             print e
@@ -99,7 +101,7 @@ class measure_fish:
 
                 if ((self.manx-self.manrect/2)>0 and (self.manx+self.manrect/2)<cols):
                     if((self.many-self.manrect/2)>0 and (self.many+self.manrect/2)<rows):
-                        crop = frame[self.many-self.manrect/2:self.many+self.manrect/2,self.manx-self.manrect/2:self.manx+self.manrect/2,:]
+                        crop = frame_orig[self.many-self.manrect/2:self.many+self.manrect/2,self.manx-self.manrect/2:self.manx+self.manrect/2,:]
                         cropfile = str(data.header.seq)+'_fish'+self.fishnum+'.jpg'
                         cv2.imwrite(self.image_directory+cropfile,crop)
 
