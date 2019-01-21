@@ -34,12 +34,13 @@ class measure_fish:
         self.many = None
         direc = rospy.get_param('output_dir','')
         bagname = rospy.get_param('bag','')
+        self.fishnum = str(rospy.get_param('fishnum','1'))
         bagchop = bagname[0:-4]
         self.image_directory = direc+'/'+bagchop+'/fish_overhead/'
         if not os.path.exists(self.image_directory):
             os.makedirs(self.image_directory)
 
-        self.file_path = direc+'/'+bagchop+'/'+bagchop+'_'+'output.txt'
+        self.file_path = direc+'/'+bagchop+'/'+bagchop+'_'+'output_fish'+self.fishnum+'.txt'
         print self.file_path
         
         self.f = open(self.file_path,'wb')
@@ -99,7 +100,7 @@ class measure_fish:
                 if ((self.manx-self.manrect/2)>0 and (self.manx+self.manrect/2)<cols):
                     if((self.many-self.manrect/2)>0 and (self.many+self.manrect/2)<rows):
                         crop = frame[self.many-self.manrect/2:self.many+self.manrect/2,self.manx-self.manrect/2:self.manx+self.manrect/2,:]
-                        cropfile = str(data.header.seq)+'.jpg'
+                        cropfile = str(data.header.seq)+'_fish'+self.fishnum+'.jpg'
                         cv2.imwrite(self.image_directory+cropfile,crop)
 
             cv2.imshow('fish',frame)
