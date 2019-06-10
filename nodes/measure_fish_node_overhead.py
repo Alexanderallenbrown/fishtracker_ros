@@ -44,6 +44,10 @@ class measure_fish:
         self.cam_pos = (0,0,18*.0254)
         self.cam_quat = tf.transformations.quaternion_from_euler(pi,0,0)
         self.fgbg = cv2.createBackgroundSubtractorMOG2()
+        self.fgbg.setDetectShadows(True)
+        self.fgbg.setShadowValue(0)
+        
+
         self.minw = 50
         self.maxw = 250
         self.minh = 50
@@ -52,6 +56,7 @@ class measure_fish:
         rospack = rospkg.RosPack()
         # get the file path for rospy_tutorials
         self.package_path=rospack.get_path('fishtracker')
+
 
     def cleanRects(self,rects):
         #gets rid of any rects that are fully contained within another
@@ -62,34 +67,14 @@ class measure_fish:
             #what rect are we looking at?
             rect_tlx,rect_tly,rect_brx,rect_bry = rects[rectnum,0],rects[rectnum,1],rects[rectnum,0]+rects[rectnum,2],rects[rectnum,1]+rects[rectnum,3]
             #now see if any others are contained within it
-            for testnum in range(0,len(rects[:,0])):
+            for testnum in range(1,len(rects[:,0])):
                 testrect_tlx,testrect_tly,testrect_brx,testrect_bry = rects[testnum,0],rects[testnum,1],rects[testnum,0]+rects[testnum,2],rects[testnum,1]+rects[testnum,3]
-                if ((rect_tlx-testrect_tlx)<0 and (rect_tly-testrect_tly)<0):
+                if ((rect_tlx-testrect_tlx)<=0 and (rect_tly-testrect_tly)<=0):
                     #this means that the TL corner is inside the rect
-                    if ((rect_brx-testrect_brx)>0 and (rect_bry-testrect_bry)>0):
+                    if ((rect_brx-testrect_brx)>=0 and (rect_bry-testrect_bry)>=0):
                         #this means that testrect is fully enclosed in rect, so delete it
                         badrects = append(badrects,testnum)
-                        print "found bad rect at index "+str(testnum)+" of "+str(len(rects[:,0]))
-        rectsout=delete(rectsout,badrects,0)
-        return rectsout
-
-    def cleanRects2(self,rects):
-        #gets rid of any rects that are fully contained within another
-        rects = array(rects)
-        rectsout=rects.copy()
-        badrects = array([],dtype=int32)
-        for rectnum in range(0,len(rects[:,0])):
-            #what rect are we looking at?
-            rect_tlx,rect_tly,rect_brx,rect_bry = rects[rectnum,0],rects[rectnum,1],rects[rectnum,0]+rects[rectnum,2],rects[rectnum,1]+rects[rectnum,3]
-            #now see if any others are contained within it
-            for testnum in range(0,len(rects[:,0])):
-                testrect_tlx,testrect_tly,testrect_brx,testrect_bry = rects[testnum,0],rects[testnum,1],rects[testnum,0]+rects[testnum,2],rects[testnum,1]+rects[testnum,3]
-                if ((rect_tlx-testrect_tlx)<0 and (rect_tly-testrect_tly)<0):
-                    #this means that the TL corner is inside the rect
-                    if ((rect_brx-testrect_brx)>0 and (rect_bry-testrect_bry)>0):
-                        #this means that testrect is fully enclosed in rect, so delete it
-                        badrects = append(badrects,testnum)
-                        print "found bad rect at index "+str(testnum)+" of "+str(len(rects[:,0]))
+                        #print "found bad rect at index "+str(testnum)+" of "+str(len(rects[:,0]))
         rectsout=delete(rectsout,badrects,0)
         return rectsout
 
@@ -116,6 +101,8 @@ class measure_fish:
             he,wi,de = frame.shape
             frame = frame[self.top_crop:he-self.bottom_crop,:]
             frame_orig = frame
+            # frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+            # frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
 
         except CvBridgeError, e:
             print e
@@ -125,36 +112,14 @@ class measure_fish:
 
         rects = None
         if rows>0:
-            #fgmask = self.fgbg.apply(frame)
+            
             gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            canny = cv2.Canny(gray,100,200)
+            fgmask = self.fgbg.apply(gray)
+            canny = cv2.Canny(fgmask,100,200)
             canny = cv2.dilate(canny,self.kernel,iterations=1)
             cannycolor = cv2.cvtColor(canny,cv2.COLOR_GRAY2BGR)
-            #gray = cv2.bilateralFilter(gray, 11, 17, 17)
-            #fgmask = self.fgbg.apply(gray)
 
-            #use hough to find ellipses
-            # result = hough_ellipse(canny, accuracy=20, threshold=250,min_size=100, max_size=120)
-            # result.sort(order='accumulator')
-
-            # # Estimated parameters for the ellipse
-            # best = list(result[-1])
-            # yc, xc, a, b = [int(round(x)) for x in best[1:5]]
-            # orientation = best[5]
-            # print xc,yc,a,b
-                        
-            #cv2.dilate(fgmask,self.kernel,iterations=1)
-            #cv2.imshow('pre canny',fgmask)
-            #fgmask = cv2.Canny(fgmask, 30, 200)
-            #fgmask = cv2.Canny(fgmask, 30, 200)
-            #http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html
-            #http://opencvpython.blogspot.com/2012/06/hi-this-article-is-tutorial-which-try.html
-            im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-            #contours = sorted(contours, key=cv2.contourArea,reverse=True)[:10]
-            #print "countour shape"
-            #contours = contours[0]
-            #print contours
-            
+            im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)          
             
             if(len(contours)>0):
                 cv2.drawContours(cannycolor,contours,-1,(0,255,0),5)
@@ -175,13 +140,13 @@ class measure_fish:
             
             #print rects
             if rects is not None:
-                rectsout = self.cleanRects2(rects)
+                rectsout = self.cleanRects(rects)
                 #print rects.shape
                 self.box(rectsout,frame)
             #cv2.imshow('frame',frame)
-            cv2.imshow('canny',cannycolor)
+            #cv2.imshow('canny',cannycolor)
 
-            cv2.waitKey(1)
+            #cv2.waitKey(1)
             #rects,frame = self.detect(frame)
             #self.box(rects, frame_orig)
         img_out = self.bridge.cv2_to_imgmsg(frame, "bgr8")
@@ -191,34 +156,6 @@ class measure_fish:
         except CvBridgeError as e:
             print(e)
 
-            # fishquat = tf.transformations.quaternion_from_euler(rvecs[0][0][0],rvecs[0][0][1],rvecs[0][0][2])
-            # br = tf.TransformBroadcaster()
-            # br.sendTransform((tvecs[0][0][0],tvecs[0][0][1],tvecs[0][0][2]),fishquat,self.timenow,'/fish_measured','/camera1')
-            # br.sendTransform(self.cam_pos,self.cam_quat,self.timenow,'/camera1','world')
-            # #publish a marker representing the fish body position
-            # fishmarker = Marker()
-            # fishmarker.header.frame_id='/fish_measured'
-            # fishmarker.header.stamp = self.timenow
-            # fishmarker.type = fishmarker.MESH_RESOURCE
-            # fishmarker.mesh_resource = 'package://fishtracker/meshes/fishbody.dae'
-            # fishmarker.mesh_use_embedded_materials = True
-            # fishmarker.action = fishmarker.MODIFY
-            # fishmarker.scale.x = 1
-            # fishmarker.scale.y = 1
-            # fishmarker.scale.z = 1
-            # tempquat = tf.transformations.quaternion_from_euler(0,0,0)#this is RELATIVE TO FISH ORIENTATION IN TF (does the mesh have a rotation?)
-            # fishmarker.pose.orientation.w = tempquat[3]
-            # fishmarker.pose.orientation.x = tempquat[0]
-            # fishmarker.pose.orientation.y = tempquat[1]
-            # fishmarker.pose.orientation.z = tempquat[2]
-            # fishmarker.pose.position.x = 0
-            # fishmarker.pose.position.y = 0
-            # fishmarker.pose.position.z = 0
-            # fishmarker.color.r = .8
-            # fishmarker.color.g = .5
-            # fishmarker.color.b = .5
-            # fishmarker.color.a = 1.0#transparency
-            # self.fishmarkerpub.publish(fishmarker)
 
 def main(args):
   
