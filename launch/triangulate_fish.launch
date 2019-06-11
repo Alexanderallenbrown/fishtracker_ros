@@ -4,6 +4,9 @@
 
 <node type="triangulate_fish_node.py" pkg="fishtracker" name="measurefish"/>
 
+<node type="triangulation_kalman.py" pkg="fishtracker" name="fishkalman"/>
+
 <node type="rviz" pkg="rviz" name="rviz" args="-d $(find fishtracker)/rviz/triangulate_fish.rviz"/>
+
 
 </launch>

@@ -64,6 +64,7 @@ class SimCam:
 class Cams:
     def __init__(self):
         #images 720 rows 1280 columns
+        self.tankpub = rospy.Publisher('/tankrig',Marker,queue_size=1)
 
         #first camera info: side view
         x1,y1,z1 = -1.54,-.45,-0.79
@@ -101,7 +102,6 @@ class Cams:
         self.package_path=rospack.get_path('fishtracker')
         self.meshpath = self.package_path+'/meshes/camera_rig.dae'
         #tank mesh marker publisher
-        self.tankpub = rospy.Publisher('/tankrig',Marker,queue_size=1)
 
 
     def camcallback(self,data):

@@ -70,12 +70,18 @@ class Measurefish:
         #ball marker publisher
         self.markerpub = rospy.Publisher('/measured_fish',Marker,queue_size=1)
 
+        #publish a pose message for the KF
+        self.posepub = rospy.Publisher('/fishtracker/measuredfishpose',PoseStamped,queue_size=1)
+
         self.topcounter=1
         self.sidecounter=1
         self.every=3
 
         self.lasttopstamp = rospy.Time.now()
         self.lastsidestamp = rospy.Time.now()
+
+        self.currenttopstamp = rospy.Time.now()
+        self.currentsidestamp = rospy.Time.now()
         
         #timed loop that will generate two synced images
         rospy.Timer(rospy.Duration(0.1),self.triangulate,oneshot=False)
@@ -144,9 +150,9 @@ class Measurefish:
             if len(rects3)>0:
                 return frame,array([(rects3[0,0]+rects3[0,2])/2,(rects3[0,1]+rects3[0,3])/2])
             else:
-                return frame,self.fishuvside
+                return frame,array([])
         else:
-            return frame,self.fishuvside
+            return frame,array([])
 
 
     def detectGeneric(self,img,thisname):
@@ -232,15 +238,17 @@ class Measurefish:
             if rectsout is not None:
                 return frame,array([(rectsout[0,0]+rectsout[0,2])/2,(rectsout[0,1]+rectsout[0,3])/2])
             else:
-                return frame,self.fishuvside
+                return frame,array([])
 
 
     #this function fires whenever a new image_raw is available. it is our "main loop"
     def sideviewcallback(self,data):
+        
         if self.sidecounter<self.every:
             self.sidecounter+=1
         else:
             self.sidecounter=1
+            self.currentsidestamp=data.header.stamp
             try:
                 np_arr = np.fromstring(data.data, np.uint8)
                 # Decode to cv2 image and store
@@ -260,11 +268,13 @@ class Measurefish:
                 print(e)
 
     def topviewcallback(self,data):
+        
         #print "in callback"
         if self.topcounter>self.every:
             self.topcounter+=1
         else:
             self.topcounter=1
+            self.currenttopstamp = data.header.stamp
             try:
                 #use the np_arr thing if subscribing to compressed image
                 #frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
@@ -315,50 +325,60 @@ class Measurefish:
     def triangulate(self,data):
         #print "hello triangulate"
         if((len(self.fishuvside)>0) and (len(self.fishuvtop)>0)):
-            #print "triangulating!"
-            P1 = array([self.CItop.P]).reshape(3,4)
-            P2 = array([self.CIside.P]).reshape(3,4)
-            x1 = vstack(self.fishuvtop)
-            x1 = vstack((x1,1))
-            x2 = vstack(self.fishuvside)
-            x2 = vstack((x2,1))
-            #use the camera information and the current guess for the u,v
-            #to triangulate the position of the ball.
-            #print x1,x2
-            #print P1,P2
-            fishpos = cv2.triangulatePoints(P1, P2, self.fishuvtop.astype(float), self.fishuvside.astype(float))
-            fishpos/=fishpos[3]
-            #print ballpos
+            if ( (self.currentsidestamp != self.lastsidestamp) and (self.currenttopstamp!=self.lasttopstamp)  ):
+                self.lasttopstamp = self.currenttopstamp
+                self.lastsidestamp = self.currentsidestamp
+                #print "triangulating!"
+                P1 = array([self.CItop.P]).reshape(3,4)
+                P2 = array([self.CIside.P]).reshape(3,4)
+                x1 = vstack(self.fishuvtop)
+                x1 = vstack((x1,1))
+                x2 = vstack(self.fishuvside)
+                x2 = vstack((x2,1))
+                #use the camera information and the current guess for the u,v
+                #to triangulate the position of the ball.
+                #print x1,x2
+                #print P1,P2
+                fishpos = cv2.triangulatePoints(P1, P2, self.fishuvtop.astype(float), self.fishuvside.astype(float))
+                fishpos/=fishpos[3]
+                #print ballpos
 
-            #send transforms to show ball's coordinate system
-            br = tf.TransformBroadcaster()
-            fishquat = tf.transformations.quaternion_from_euler(0,0,0)
-            #I think the ball position needs to be inverted... why? Not sure but I think
-            #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
-            br.sendTransform(-fishpos[:,0],fishquat,rospy.Time.now(),'/fishmeasured','world')
+                #send transforms to show ball's coordinate system
+                br = tf.TransformBroadcaster()
+                fishquat = tf.transformations.quaternion_from_euler(0,0,0)
+                #I think the ball position needs to be inverted... why? Not sure but I think
+                #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
+                br.sendTransform(-fishpos[:,0],fishquat,rospy.Time.now(),'/fishmeasured','world')
 
-            #create a marker
-            fishmarker = Marker()
-            fishmarker.header.frame_id='/fishmeasured'
-            fishmarker.header.stamp = rospy.Time.now()
-            fishmarker.type = fishmarker.SPHERE
-            fishmarker.action = fishmarker.MODIFY
-            fishmarker.scale.x = .12
-            fishmarker.scale.y = .12
-            fishmarker.scale.z = .12
-            fishmarker.pose.orientation.w=1
-            fishmarker.pose.orientation.x = 0
-            fishmarker.pose.orientation.y=0
-            fishmarker.pose.orientation.z=0
-            fishmarker.pose.position.x = 0
-            fishmarker.pose.position.y=0
-            fishmarker.pose.position.z=0
-            fishmarker.color.r=0.0
-            fishmarker.color.g=0
-            fishmarker.color.b=1.0
-            fishmarker.color.a=0.5
+                #create a marker
+                fishmarker = Marker()
+                fishmarker.header.frame_id='/fishmeasured'
+                fishmarker.header.stamp = rospy.Time.now()
+                fishmarker.type = fishmarker.SPHERE
+                fishmarker.action = fishmarker.MODIFY
+                fishmarker.scale.x = .12
+                fishmarker.scale.y = .12
+                fishmarker.scale.z = .12
+                fishmarker.pose.orientation.w=1
+                fishmarker.pose.orientation.x = 0
+                fishmarker.pose.orientation.y=0
+                fishmarker.pose.orientation.z=0
+                fishmarker.pose.position.x = 0
+                fishmarker.pose.position.y=0
+                fishmarker.pose.position.z=0
+                fishmarker.color.r=0.0
+                fishmarker.color.g=0
+                fishmarker.color.b=1.0
+                fishmarker.color.a=0.5
 
-            self.markerpub.publish(fishmarker)
+                self.markerpub.publish(fishmarker)
+
+                posemsg = PoseStamped()
+                posemsg.header.stamp = rospy.Time.now()
+                posemsg.pose.position.x = 0.-fishpos[0,0]
+                posemsg.pose.position.y = 0.-fishpos[1,0]
+                posemsg.pose.position.z = 0.-fishpos[2,0]
+                self.posepub.publish(posemsg)
 
 
 def main(args):
