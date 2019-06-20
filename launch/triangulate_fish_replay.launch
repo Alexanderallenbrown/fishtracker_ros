@@ -1,5 +1,8 @@
 <launch>
 
+<!-- <node type = "play" pkg = "rosbag" name="player" args=" /home/brownlab/Desktop/June2019FishData/_2019-06-19-09-29-17_0.bag "/> -->
+
+
 <node type="publish_camera_transforms.py" pkg="fishtracker" name="CameraPub"/>
 
 <node type="triangulate_fish_node.py" pkg="fishtracker" name="measurefish"/>
@@ -7,6 +10,8 @@
 <node type="triangulation_kalman_node.py" pkg="fishtracker" name="fishkalman"/>
 
 <node type="rviz" pkg="rviz" name="rviz" args="-d $(find fishtracker)/rviz/triangulate_fish.rviz"/>
+
+<!-- <node type="rostopic" pkg="rostopic" name="pretty " args="echo -p /fishtracker/kalmanfishpose > /home/brownlab/Desktop/June2019FishData/_2019-06-19-09-29-17_0.txt "/> -->
 
 
 </launch>

@@ -5,8 +5,11 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
+        - /TF1
+        - /TF1/Frames1
         - /image top1
         - /Tank Rig1
+        - /Marker2/Namespaces1
       Splitter Ratio: 0.5
     Tree Height: 179
   - Class: rviz/Selection
@@ -58,7 +61,7 @@ Visualization Manager:
       Marker Topic: /measured_fish
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 1
       Value: true
     - Class: rviz/Axes
@@ -84,13 +87,19 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
         camera1:
           Value: true
         camera2:
           Value: true
-        fishmeasured:
+        fishkalman1:
           Value: true
+        fishkalman2:
+          Value: true
+        fishmeasured_0:
+          Value: false
+        fishmeasured_1:
+          Value: false
         world:
           Value: true
       Marker Scale: 1
@@ -104,7 +113,13 @@ Visualization Manager:
             {}
           camera2:
             {}
-          fishmeasured:
+          fishkalman1:
+            {}
+          fishkalman2:
+            {}
+          fishmeasured_0:
+            {}
+          fishmeasured_1:
             {}
       Update Interval: 0
       Value: true
@@ -124,6 +139,22 @@ Visualization Manager:
       Enabled: true
       Marker Topic: /tankrig
       Name: Tank Rig
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /measured_fish0
+      Name: Marker
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /measured_fish1
+      Name: Marker
       Namespaces:
         "": true
       Queue Size: 100
@@ -156,7 +187,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 3.541372060775757
+      Distance: 2.63079571723938
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -171,10 +202,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3603977560997009
+      Pitch: 0.9597969055175781
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.9653990268707275
+      Yaw: 3.26539945602417
     Saved: ~
 Window Geometry:
   Displays:

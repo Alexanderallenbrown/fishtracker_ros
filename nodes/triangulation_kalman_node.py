@@ -31,13 +31,14 @@ class KalmanOneFish:
         self.KF = cv2.KalmanFilter(6,3,0)
         self.KF.transitionMatrix = array([[1., self.dt,0.,0.,0.,0.], [0., 1.,0.,0.,0.,0.],[0.,0.,1.,self.dt,0.,0.],[0.,0.,0.,1.,0.,0.,],[0.,0.,0.,0.,1.,self.dt],[0.,0.,0.,0.,0.,1.]])
         self.KF.measurementMatrix = 1. * array([[1.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,1.,0.]])
-        self.KF.processNoiseCov = 1e-5 * eye(6)
+        self.KF.processNoiseCov = 1e-3 * eye(6)
         self.KF.measurementNoiseCov = 1e-1 * eye(3)
         self.KF.errorCovPost = 1. * ones((6, 6))
-        self.KF.statePost = 0.1 * random.randn(6, 1)
+        self.KF.statePost = 0.0 * random.randn(6, 1)
 
         #subscribe to the 3D pose of the single fish:
         self.measuresub = rospy.Subscriber("/fishtracker/measuredfishpose",PoseStamped,self.measurecallback)
+        self.KFpub = rospy.Publisher("/fishtracker/kalmanfishpose",PoseStamped,queue_size=1)
 
         #timer for the prediction step(s)
         rospy.Timer(rospy.Duration(0.1),self.timercallback,oneshot=False)
@@ -64,7 +65,12 @@ class KalmanOneFish:
             self.state_estimate = self.KF.statePost
         br = tf.TransformBroadcaster()
         br.sendTransform([self.state_estimate[0,0],self.state_estimate[2,0],self.state_estimate[4,0]],[0.,0.,0.,1],rospy.Time.now(),'/fishkalman','/world')
-
+        KFPose = PoseStamped()
+        KFPose.header.stamp = rospy.Time.now()
+        KFPose.pose.position.x = self.state_estimate[0,0]
+        KFPose.pose.position.y = self.state_estimate[2,0]
+        KFPose.pose.position.z = self.state_estimate[4,0]
+        self.KFpub.publish(KFPose)
 
 
 def main(args):

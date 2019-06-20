@@ -28,7 +28,10 @@ class measure_fish:
     def __init__(self):
         #self.D = np.array([-0.40541413163196455, 0.09621547958919903, 0.029070017586547533, 0.005280797822816339, 0.0])
         #self.K = np.array([[529.8714858851022, 0.0, 836.4563887311622], [0.0, 1547.2605077363528, 83.19276259345895], [0.0, 0.0, 1.0]])
-
+        self.kernel = np.ones((9,9),np.uint8)
+        self.fgbg = cv2.createBackgroundSubtractorMOG2()
+        self.fgbg.setDetectShadows(True)
+        self.fgbg.setShadowValue(0)
         #this is how we get our image in to use openCV
         self.manx = None
         self.many = None
@@ -96,6 +99,29 @@ class measure_fish:
                 # pass
                 if self.drawing==True:
                     self.f.write(str(now)+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
+                
+                gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+                fgmask = self.fgbg.apply(gray)
+                framecrop = fgmask[self.many-self.manrect/2:self.many+self.manrect/2,self.manx-self.manrect/2:self.manx+self.manrect/2]
+                cropgrey = framecrop#cv2.cvtColor(framecrop,cv2.COLOR_BGR2GRAY)
+                cropcanny = cv2.Canny(cropgrey,100,200)
+                cropcanny = cv2.dilate(cropcanny,self.kernel,iterations=1)
+                im,contours,hier = cv2.findContours(cropcanny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+                if(len(contours))>0:
+                    cropcannycolor = cv2.cvtColor(cropcanny,cv2.COLOR_GRAY2BGR)
+                    cv2.drawContours(cropcannycolor,contours,-1,(0,255,0),5)
+                    # cv2.imshow("contours",cropcannycolor)
+                    # cv2.waitKey(10)
+                    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
+                    cnt = contours[0]
+                    print cnt
+                    if len(cnt)>5:
+                        ellipse = cv2.fitEllipse(cnt)
+                        # print ellipse
+                        ellipse2 = ((self.manx-self.manrect/2+ellipse[0][0],self.many-self.manrect/2+ellipse[0][1]),(ellipse[1][0],ellipse[1][1]),ellipse[2])
+                        # ellipse[0]=(ellipse[0][0]+self.manx,ellipse[0][1]+self.many)
+                        # ellipse[0][1]+=self.many
+                        cv2.ellipse(frame,ellipse2,(255,0,0),2)
                 cv2.rectangle(frame,(self.manx-self.manrect/2,self.many-self.manrect/2),(self.manx+self.manrect/2,self.many+self.manrect/2),(0,255,0),1)
                 cv2.circle(frame,(self.manx,self.many),self.mandia,(0,255,0),1)
 

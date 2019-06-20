@@ -18,13 +18,20 @@ import numpy as np
 from numpy import *
 import math
 import cv2
-# from cv2 import cv
 import tf
 import rospkg
 from skimage import data, color, img_as_ubyte
 from skimage.feature import canny
 from skimage.transform import hough_ellipse
 from skimage.draw import ellipse_perimeter
+
+
+# def nearestColumn(uv1,uv2):
+#     #uv1 and uv2 come in as [x11 x2 ...; y1 y2 ...] 
+#     #our job here is to sort these so that the x coordinates are the best matches.
+#     #NOTE THIS IS SPECIFIC TO OUR CASE WHERE 
+#     x1 = uv1[0,:]
+#     x2 = uv2[0,:]
 
 class Measurefish:
 
@@ -33,7 +40,7 @@ class Measurefish:
         self.bridge = CvBridge()
         
         #side view detection specific
-        self.svminx,self.svmaxx,self.svminy,self.svmaxy = rospy.get_param('svminx',220),rospy.get_param('svmaxx',1100),rospy.get_param('svminy',230),rospy.get_param('svmaxy',370)
+        self.svminx,self.svmaxx,self.svminy,self.svmaxy = rospy.get_param('svminx',220),rospy.get_param('svmaxx',1080),rospy.get_param('svminy',260),rospy.get_param('svmaxy',400)
         rospack = rospkg.RosPack()
         self.package_path=rospack.get_path('fishtracker')
         #this is how we get our image in to use openCV
@@ -44,9 +51,10 @@ class Measurefish:
         self.fgbg = cv2.createBackgroundSubtractorMOG2()
         self.fgbg.setDetectShadows(True)
         self.fgbg.setShadowValue(0)
-        self.minw = 50
+        # self.fgbg.setHistory(10)
+        self.minw = 60
         self.maxw = 250
-        self.minh = 50
+        self.minh = 60
         self.maxh = 250
         self.kernel = np.ones((9,9),np.uint8)
 
@@ -57,7 +65,7 @@ class Measurefish:
         #placeholder for cam1 parameters
         self.CIside = CameraInfo()
         #placeholder for the ball row and column
-        self.fishuvside = array([0,0])
+        self.fishuvside = array([[0],[0]])
 
         #pub and sub for camera 2
         self.imtop_sub = rospy.Subscriber("/camera1/usb_cam1/image_raw/compressed",CompressedImage,self.topviewcallback,queue_size=1)#change this to proper name!
@@ -66,13 +74,15 @@ class Measurefish:
         #placeholder for cam1 parameters
         self.CItop = CameraInfo()
         #placeholder for the ball row and column
-        self.fishuvtop = array([0,0])
+        self.fishuvtop = array([[0],[0]])
 
         #ball marker publisher
-        self.markerpub = rospy.Publisher('/measured_fish',Marker,queue_size=1)
+        self.markerpub0 = rospy.Publisher('/measured_fish0',Marker,queue_size=1)
+        self.markerpub1 = rospy.Publisher('/measured_fish1',Marker,queue_size=1)
 
         #publish a pose message for the KF
-        self.posepub = rospy.Publisher('/fishtracker/measuredfishpose',PoseStamped,queue_size=1)
+        self.posepub0 = rospy.Publisher('/fishtracker/measuredfishpose0',PoseStamped,queue_size=1)
+        self.posepub1 = rospy.Publisher('/fishtracker/measuredfishpose1',PoseStamped,queue_size=1)
 
         self.topcounter=1
         self.sidecounter=1
@@ -87,22 +97,43 @@ class Measurefish:
         #timed loop that will generate two synced images
         rospy.Timer(rospy.Duration(0.1),self.triangulate,oneshot=False)
 
+    # def cleanRects(self,rects):
+    #     #gets rid of any rects that are fully contained within another
+    #     rects = array(rects)
+    #     rectsout=rects.copy()
+    #     badrects = array([],dtype=int32)
+    #     for rectnum in range(0,len(rects[:,0])):
+    #         #what rect are we looking at?
+    #         rect_tlx,rect_tly,rect_brx,rect_bry = rects[rectnum,0],rects[rectnum,1],rects[rectnum,0]+rects[rectnum,2],rects[rectnum,1]+rects[rectnum,3]
+    #         #now see if any others are contained within it
+    #         for testnum in range(1,len(rects[:,0])):
+    #             testrect_tlx,testrect_tly,testrect_brx,testrect_bry = rects[testnum,0],rects[testnum,1],rects[testnum,0]+rects[testnum,2],rects[testnum,1]+rects[testnum,3]
+    #             if ((rect_tlx-testrect_tlx)<=0 and (rect_tly-testrect_tly)<=0):
+    #                 #this means that the TL corner is inside the rect
+    #                 if ((rect_brx-testrect_brx)>=0 and (rect_bry-testrect_bry)>=0):
+    #                     #this means that testrect is fully enclosed in rect, so delete it
+    #                     badrects = append(badrects,testnum)
+    #                     #print "found bad rect at index "+str(testnum)+" of "+str(len(rects[:,0]))
+    #     rectsout=delete(rectsout,badrects,0)
+    #     return rectsout
+
     def cleanRects(self,rects):
         #gets rid of any rects that are fully contained within another
         rects = array(rects)
         rectsout=rects.copy()
         badrects = array([],dtype=int32)
-        for rectnum in range(1,len(rects[:,0])):
+        for rectnum in range(0,len(rects[:,0])):
             #what rect are we looking at?
             rect_tlx,rect_tly,rect_brx,rect_bry = rects[rectnum,0],rects[rectnum,1],rects[rectnum,0]+rects[rectnum,2],rects[rectnum,1]+rects[rectnum,3]
             #now see if any others are contained within it
-            for testnum in range(1,len(rects[:,0])):
+            for testnum in range(0,len(rects[:,0])):
                 testrect_tlx,testrect_tly,testrect_brx,testrect_bry = rects[testnum,0],rects[testnum,1],rects[testnum,0]+rects[testnum,2],rects[testnum,1]+rects[testnum,3]
                 if ((rect_tlx-testrect_tlx)<=0 and (rect_tly-testrect_tly)<=0):
                     #this means that the TL corner is inside the rect
                     if ((rect_brx-testrect_brx)>=0 and (rect_bry-testrect_bry)>=0):
                         #this means that testrect is fully enclosed in rect, so delete it
-                        badrects = append(badrects,testnum)
+                        if testnum is not rectnum:
+                            badrects = append(badrects,testnum)
                         #print "found bad rect at index "+str(testnum)+" of "+str(len(rects[:,0]))
         rectsout=delete(rectsout,badrects,0)
         return rectsout
@@ -140,7 +171,7 @@ class Measurefish:
         img = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             # frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
         
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=7,  minSize=(1,1),maxSize=(70,100),flags=cv2.CASCADE_SCALE_IMAGE)
+        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=3,  minSize=(1,1),maxSize=(70,100),flags=cv2.CASCADE_SCALE_IMAGE)
         if(len(rects))>0:
             rects2=self.cleanRects(rects)
             # rects3= rects2
@@ -149,53 +180,17 @@ class Measurefish:
             self.box(rects3,frame)
 
             if len(rects3)>0:
-                return frame,array([(rects3[0,0]+rects3[0,2])/2,(rects3[0,1]+rects3[0,3])/2])
+                nfish,npts = rects3.shape
+                # print "side view fish: "+str(rects3.shape)
+                out = zeros((2,nfish))
+                for k in range(0,nfish):
+                    # pass
+                    out[:,k] = [(rects3[k,0]+rects3[k,2])/2,(rects3[k,1]+rects3[k,3])/2]
+                return frame,out
             else:
-                return frame,array([])
+                return frame,array([[]])
         else:
-            return frame,array([])
-
-
-    def detectGeneric(self,img,thisname):
-        frame = img.copy()
-        rows,cols, = frame.shape
-
-        rects = None
-        if rows>0:
-            #fgmask = self.fgbg.apply(frame)
-            gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            canny = cv2.Canny(gray,100,200)
-            # canny = cv2.dilate(canny,self.kernel,iterations=1)
-            cannycolor = cv2.cvtColor(canny,cv2.COLOR_GRAY2BGR)
-            im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-            
-            if(len(contours)>0):
-                cv2.drawContours(cannycolor,contours,-1,(0,255,0),5)
-                for k in range(0,len(contours)):
-                    cnt = contours[k]
-                    x,y,w,h = cv2.boundingRect(array(cnt))
-                    #print x,y,w,h
-                    if rects is not None:
-                        rects = np.vstack((rects,np.array([x,y,w+x,h+y])))
-                        #print rects
-                    else:
-                        rects = np.array([[x,y,w+x,h+y]])
-            
-            #print rects
-            if rects is not None:
-                rectsout = self.cleanRects(rects)
-                #print rects.shape
-                self.box(rectsout,frame)
-            cv2.rectangle(frame,(self.svminx,self.svminy),(self.svmaxx,self.svmaxy),(0,0,255),2)
-            # cv2.imshow('frame',frame)
-            #cv2.imshow(thisname,frame)
-
-            #cv2.waitKey(1)
-
-        if rects is not None:
-            return frame,array([(rects[0,0]+rects[0,2])/2,(rects[0,1]+rects[0,3])/2])
-        else:
-            return frame,array([])
+            return frame,array([[]])
 
     def detectTopview(self,frame):
         # self.timenow = rospy.Time.now()
@@ -208,13 +203,15 @@ class Measurefish:
             gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             fgmask = self.fgbg.apply(gray)
             canny = cv2.Canny(fgmask,100,200)
-            canny = cv2.dilate(canny,self.kernel,iterations=1)
+            canny = cv2.dilate(canny,self.kernel,iterations=3)
             cannycolor = cv2.cvtColor(canny,cv2.COLOR_GRAY2BGR)
 
             im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)          
             
             if(len(contours)>0):
                 cv2.drawContours(cannycolor,contours,-1,(0,255,0),5)
+                # cv2.imshow("contours",cannycolor)
+                # cv2.waitKey(1)
                 for k in range(0,len(contours)):
                     cnt = contours[k]
                     #print cnt.shape
@@ -224,9 +221,6 @@ class Measurefish:
                     if ((w<self.maxw) and (w>self.minw) and (h<self.maxh) and (h>self.minh)):
                         #print k,x,y,w,h
                         #frame = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,0,255),2)
-                        ellipse = cv2.fitEllipse(cnt)
-                        cv2.ellipse(frame,ellipse,(0,255,0),2)
-                        print ellipse
                         if rects is not None:
                             rects = np.vstack((rects,np.array([x,y,w+x,h+y])))
                             #print rects
@@ -236,13 +230,22 @@ class Measurefish:
             #print rects
             if rects is not None:
                 rectsout = self.cleanRects(rects)
-                #print rects.shape
+                # print rects.shape
+                # print rectsout.shape
                 self.box(rectsout,frame)
+
                 
             if rectsout is not None:
-                return frame,array([(rectsout[0,0]+rectsout[0,2])/2,(rectsout[0,1]+rectsout[0,3])/2])
+                nfish,npts = rectsout.shape
+                # if nfish>1:
+                    # print "top view fish: "+str(rectsout.shape)
+                out = zeros((2,nfish))
+                for k in range(0,nfish):
+                    # pass
+                    out[:,k] = [(rectsout[k,0]+rectsout[k,2])/2,(rectsout[k,1]+rectsout[k,3])/2]
+                return frame,out
             else:
-                return frame,array([])
+                return frame,array([[]])
 
 
     #this function fires whenever a new image_raw is available. it is our "main loop"
@@ -260,7 +263,7 @@ class Measurefish:
                 he,wi,de = frame.shape
                 #print frame.shape
                 if frame is not None:
-                    print "processing side frame"
+                    # print "processing side frame"
                     #frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
                     frameside_out,self.fishuvside = self.detectSideview(frame)
                     img_out = self.bridge.cv2_to_imgmsg(frameside_out, "8UC3")
@@ -327,62 +330,108 @@ class Measurefish:
         self.CIside = data
 
     def triangulate(self,data):
-        #print "hello triangulate"
-        if((len(self.fishuvside)>0) and (len(self.fishuvtop)>0)):
+        #now we have to sort so that the first fish in side image corresponds with the same fish in top image, etc.
+        #how many fish are in each image right now?
+        pts,nfishside = self.fishuvside.shape
+        pts,nfishtop = self.fishuvtop.shape
+        #first check to see if we have a measurement in both images
+        if((nfishside>0) and (nfishtop)>0):
+            #now check to see if both are new
             if ( (self.currentsidestamp != self.lastsidestamp) and (self.currenttopstamp!=self.lasttopstamp)  ):
                 self.lasttopstamp = self.currenttopstamp
                 self.lastsidestamp = self.currentsidestamp
-                #print "triangulating!"
+
+                
+                #how many fish do we have in BOTH images? Can only deal with that number for triangulation.
+                nfish = min(nfishside,nfishtop)
+                if nfish>2:
+                    nfish=2
+                # rospy.loginfo("num fish is: "+str(nfish))
+                #sort fish in both top and bottom by their x-coordinate in the image (this only works for our case where columns should roughly align)
+                inds_side = argsort(self.fishuvside[0,:])
+                inds_top = argsort(self.fishuvtop[0,:])
+                #now cut and prepare the x1 and x2 vectors for openCV
+                # print nfishtop,nfishside
+                x1 = self.fishuvtop[:,inds_top]
+                x2 = self.fishuvside[:,inds_side]
+                #make each homogeneous (add ones)
+                # x1 = vstack((x1,ones((1,nfishtop))))
+                # x2 = vstack((x2,ones((1,nfishside))))
+                #now we still have the problem that x1 and x2 may not be the same number of fish.
+                #but we have to be careful here because there may be 2 rectangles on one fish body... 
+                #deal with this later, and for now just take nfish columns from each
+                x1 = x1[:,0:nfish]
+                x2 = x2[:,0:nfish]
+
+                if nfish==2:
+                    rospy.loginfo("x1: "+str(x1))
+                    rospy.loginfo("x2: "+str(x2))
+
+                #prepare the projection matrices
                 P1 = array([self.CItop.P]).reshape(3,4)
                 P2 = array([self.CIside.P]).reshape(3,4)
-                x1 = vstack(self.fishuvtop)
-                x1 = vstack((x1,1))
-                x2 = vstack(self.fishuvside)
-                x2 = vstack((x2,1))
+                print "top: "+str(P1)
+                print "side: "+str(P2)
+                
                 #use the camera information and the current guess for the u,v
                 #to triangulate the position of the ball.
                 #print x1,x2
                 #print P1,P2
-                fishpos = cv2.triangulatePoints(P1, P2, self.fishuvtop.astype(float), self.fishuvside.astype(float))
-                fishpos/=fishpos[3]
+                fishpos = cv2.triangulatePoints(P1, P2, x1, x2)
+                fishpos/=fishpos[3,:]
                 #print ballpos
+                if nfish==2:
+                    rospy.loginfo(str(fishpos))
 
                 #send transforms to show ball's coordinate system
                 br = tf.TransformBroadcaster()
-                fishquat = tf.transformations.quaternion_from_euler(0,0,0)
-                #I think the ball position needs to be inverted... why? Not sure but I think
-                #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
-                br.sendTransform(-fishpos[:,0],fishquat,rospy.Time.now(),'/fishmeasured','world')
+                for k in range(0,nfish):
+                    fishquat = tf.transformations.quaternion_from_euler(0,0,0)
+                    #I think the ball position needs to be inverted... why? Not sure but I think
+                    #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
+                    br.sendTransform(-fishpos[:,k],fishquat,rospy.Time.now(),'/fishmeasured_'+str(k),'world')
 
-                #create a marker
-                fishmarker = Marker()
-                fishmarker.header.frame_id='/fishmeasured'
-                fishmarker.header.stamp = rospy.Time.now()
-                fishmarker.type = fishmarker.SPHERE
-                fishmarker.action = fishmarker.MODIFY
-                fishmarker.scale.x = .12
-                fishmarker.scale.y = .12
-                fishmarker.scale.z = .12
-                fishmarker.pose.orientation.w=1
-                fishmarker.pose.orientation.x = 0
-                fishmarker.pose.orientation.y=0
-                fishmarker.pose.orientation.z=0
-                fishmarker.pose.position.x = 0
-                fishmarker.pose.position.y=0
-                fishmarker.pose.position.z=0
-                fishmarker.color.r=0.0
-                fishmarker.color.g=0
-                fishmarker.color.b=1.0
-                fishmarker.color.a=0.5
+                    #create a marker
+                    fishmarker = Marker()
+                    fishmarker.header.frame_id='/fishmeasured_'+str(k)
+                    fishmarker.header.stamp = rospy.Time.now()
+                    fishmarker.type = fishmarker.SPHERE
+                    fishmarker.action = fishmarker.MODIFY
+                    fishmarker.scale.x = .12
+                    fishmarker.scale.y = .12
+                    fishmarker.scale.z = .12
+                    fishmarker.pose.orientation.w=1
+                    fishmarker.pose.orientation.x = 0
+                    fishmarker.pose.orientation.y=0
+                    fishmarker.pose.orientation.z=0
+                    fishmarker.pose.position.x = 0
+                    fishmarker.pose.position.y=0
+                    fishmarker.pose.position.z=0
+                    fishmarker.color.r=0.0
+                    fishmarker.color.g=0
+                    fishmarker.color.b=1.0
+                    fishmarker.color.a=0.5
 
-                self.markerpub.publish(fishmarker)
+                    if k==0:
+                        self.markerpub0.publish(fishmarker)
+                        posemsg = PoseStamped()
+                        posemsg.header.stamp = rospy.Time.now()
+                        posemsg.pose.position.x = 0.-fishpos[0,0]
+                        posemsg.pose.position.y = 0.-fishpos[1,0]
+                        posemsg.pose.position.z = 0.-fishpos[2,0]
+                        self.posepub0.publish(posemsg)
+                    elif k==1:
+                        self.markerpub1.publish(fishmarker)
+                        posemsg = PoseStamped()
+                        posemsg.header.stamp = rospy.Time.now()
+                        posemsg.pose.position.x = 0.-fishpos[0,0]
+                        posemsg.pose.position.y = 0.-fishpos[1,0]
+                        posemsg.pose.position.z = 0.-fishpos[2,0]
+                        self.posepub1.publish(posemsg)
 
-                posemsg = PoseStamped()
-                posemsg.header.stamp = rospy.Time.now()
-                posemsg.pose.position.x = 0.-fishpos[0,0]
-                posemsg.pose.position.y = 0.-fishpos[1,0]
-                posemsg.pose.position.z = 0.-fishpos[2,0]
-                self.posepub.publish(posemsg)
+    def correspondence(self,uvside,uvtop):
+        #ok, let's figure out how many fish we're dealing with
+        pass
 
 
 def main(args):

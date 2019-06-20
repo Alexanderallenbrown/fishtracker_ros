@@ -2,9 +2,9 @@
 
 <node type="publish_camera_transforms.py" pkg="fishtracker" name="CameraPub"/>
 
-<node type="triangulate_fish_node.py" pkg="fishtracker" name="measurefish"/>
+<node type="triangulate_fish_node_twofish.py" pkg="fishtracker" name="measurefish"/>
 
-<node type="triangulation_kalman_node.py" pkg="fishtracker" name="fishkalman"/>
+<node type="triangulation_kalman_node_twofish.py" pkg="fishtracker" name="fishkalman"/>
 
 <node type="rviz" pkg="rviz" name="rviz" args="-d $(find fishtracker)/rviz/triangulate_fish.rviz"/>
 
