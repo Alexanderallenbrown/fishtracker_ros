@@ -1,0 +1,33 @@
+<launch>
+
+<!-- How to use this bag file:
+example: roslaunch fishtracker replay_manual_overhead.launch bag:=onefish_2019-01-18-15-15-38_1.bag dir:=/home/brownlab/Desktop/2019_fishdata/onefish_twocam fish:=1
+
+you set the bag file name, and the working directory name (which must be the same as the directory the bag file is in). you also set the fish number (not the number of fish) that you are tracking. For instance, in a two-fish experiment, I would set this to "2" to track the second fish. Once the video shows up, hold your mouse button down on the opencv window and follow the fish! A text file will pop up, and so will a directory of images that represent the current fish in the current frame (for image classification development later) -->
+
+<param name="use_sim_time" value="true" />
+<arg name="bag" default="default.bag"/>
+<param name="/bag" value="$(arg bag)"/>
+<arg name="dir"/>
+<!-- <env name="ROS_HOME" value="$(arg dir)"/> -->
+<param name="/output_dir" value="$(arg dir)"/>
+<arg name="fish" default="1"/>
+<param name="/fishnum" value="$(arg fish)"/>
+
+
+  <node name="fish_image_node_overhead" pkg = "fishtracker" type = "manual_fish_node_side.py" respawn = "true" output = "screen">
+  </node>
+  <node name="playback" pkg = "rosbag" type="play" args=" $(arg dir)/$(arg bag)"/>
+
+
+
+  <!-- <param name="/fish_image_node_overhead/image_transport" value="compressed"/> -->
+
+<!-- keeping this next bit here to remember how to set params in a launch file... -->
+  <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen" args="_image_transport:=compressed">
+    <remap from="image" to="/camera1/usb_camera/image_raw"/>
+    <param name="autosize" value="true" />
+  </node>
+
+
+</launch>
