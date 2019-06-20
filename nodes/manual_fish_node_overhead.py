@@ -114,11 +114,12 @@ class measure_fish:
                     # cv2.waitKey(10)
                     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
                     cnt = contours[0]
-                    print cnt
+                    
                     if len(cnt)>5:
                         ellipse = cv2.fitEllipse(cnt)
                         # print ellipse
                         ellipse2 = ((self.manx-self.manrect/2+ellipse[0][0],self.many-self.manrect/2+ellipse[0][1]),(ellipse[1][0],ellipse[1][1]),ellipse[2])
+                        print ellipse[2]
                         # ellipse[0]=(ellipse[0][0]+self.manx,ellipse[0][1]+self.many)
                         # ellipse[0][1]+=self.many
                         cv2.ellipse(frame,ellipse2,(255,0,0),2)
