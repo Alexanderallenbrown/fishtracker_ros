@@ -111,10 +111,12 @@ class measure_fish:
     
     def update_fish(self,event,x,y,flags,param):
         if event==cv2.EVENT_LBUTTONDOWN:
-            self.drawing = True
-            self.manx,self.many = x,y
-        elif event==cv2.EVENT_LBUTTONUP:
-            self.drawing=False
+            if(self.drawing==False):
+                self.drawing = True
+            else:
+                self.drawing = False
+        # elif event==cv2.EVENT_LBUTTONUP:
+        #     self.drawing=False
         elif event==cv2.EVENT_MOUSEMOVE:
             if self.drawing==True:
                 self.manx,self.many = x,y
