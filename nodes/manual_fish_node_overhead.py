@@ -44,7 +44,7 @@ class measure_fish:
         if not os.path.exists(self.image_directory):
             os.makedirs(self.image_directory)
 
-        self.file_path = direc+'/'+self.bagchop+'/'+self.bagchop+'_'+'output_fish'+self.fishnum+'.txt'
+        self.file_path = direc+'/'+self.bagchop+'/'+self.bagchop+'_'+'output_fish'+self.fishnum+'overhead.txt'
         self.anglefile_path=direc+'/'+self.bagchop+'/'+self.bagchop+'_'+'output_fishangle'+self.fishnum+'.txt'
         
         print self.file_path
@@ -151,8 +151,8 @@ class measure_fish:
                         cv2.imwrite(self.image_directory+self.bagchop+'_'+cropfile,crop)
 
                 if self.drawing==True:
-                    self.f.write(str(now)+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
-                    self.anglef.write(str(now)+'\t'+str(data.header.seq)+'\t'+str(self.detectedangle)+'\r\n')
+                    self.f.write(str(data.header.stamp)+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
+                    self.anglef.write(str(data.header.stamp)+'\t'+str(data.header.seq)+'\t'+str(self.detectedangle)+'\r\n')
 
             cv2.imshow('fish',frame)
             cv2.waitKey(1)

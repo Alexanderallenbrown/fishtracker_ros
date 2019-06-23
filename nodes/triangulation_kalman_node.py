@@ -8,6 +8,7 @@ roslib.load_manifest('triangulation_test')
 import sys
 import rospy
 #from cv2 import cv
+from fishtracker.msg import Float32Stamped
 from std_msgs.msg import *
 from geometry_msgs.msg import *
 #from preview_filter.msg import * #this is very important! we have custom message types defined in this package!!

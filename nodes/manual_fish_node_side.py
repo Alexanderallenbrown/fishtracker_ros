@@ -40,7 +40,7 @@ class measure_fish:
         if not os.path.exists(self.image_directory):
             os.makedirs(self.image_directory)
 
-        self.file_path = direc+'/'+self.bagchop+'/'+self.bagchop+'_'+'output_fish'+self.fishnum+'.txt'
+        self.file_path = direc+'/'+self.bagchop+'/'+self.bagchop+'_'+'output_fish'+self.fishnum+'side.txt'
         print self.file_path
         
         self.f = open(self.file_path,'wb')

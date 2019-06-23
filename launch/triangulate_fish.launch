@@ -1,4 +1,5 @@
 <launch>
+<!-- <node pkg="rosservice" type="rosservice" name="set_logger_level" args="call /tf_mapping_node/set_logger_level '{logger: 'rosout', level: 'ERROR'}'"/> -->
 
 <node type="publish_camera_transforms.py" pkg="fishtracker" name="CameraPub"/>
 

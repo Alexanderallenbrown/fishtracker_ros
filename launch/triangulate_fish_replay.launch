@@ -1,7 +1,14 @@
 <launch>
 
 <!-- <node type = "play" pkg = "rosbag" name="player" args=" /home/brownlab/Desktop/June2019FishData/_2019-06-19-09-29-17_0.bag "/> -->
-
+<param name="use_sim_time" value="false" />
+<arg name="bag" default="default.bag"/>
+<param name="/bag" value="$(arg bag)"/>
+<arg name="dir"/>
+<!-- <env name="ROS_HOME" value="$(arg dir)"/> -->
+<param name="/output_dir" value="$(arg dir)"/>
+<arg name="fish" default="1"/>
+<param name="/fishnum" value="$(arg fish)"/>
 
 <node type="publish_camera_transforms.py" pkg="fishtracker" name="CameraPub"/>
 
@@ -10,6 +17,10 @@
 <node type="triangulation_kalman_node.py" pkg="fishtracker" name="fishkalman"/>
 
 <node type="rviz" pkg="rviz" name="rviz" args="-d $(find fishtracker)/rviz/triangulate_fish.rviz"/>
+
+<node name="playback" pkg = "rosbag" type="play" args=" $(arg dir)/$(arg bag) --clock"/>
+
+<node name="saver" pkg="fishtracker" type="saver_node.py"/>
 
 <!-- <node type="rostopic" pkg="rostopic" name="pretty " args="echo -p /fishtracker/kalmanfishpose > /home/brownlab/Desktop/June2019FishData/_2019-06-19-09-29-17_0.txt "/> -->
 

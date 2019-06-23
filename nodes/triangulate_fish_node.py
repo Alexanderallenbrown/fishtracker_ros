@@ -8,6 +8,7 @@ roslib.load_manifest('triangulation_test')
 import sys
 import rospy
 #from cv2 import cv
+from fishtracker.msg import Float32Stamped
 from std_msgs.msg import *
 from geometry_msgs.msg import *
 #from preview_filter.msg import * #this is very important! we have custom message types defined in this package!!
@@ -63,6 +64,9 @@ class Measurefish:
         self.imtop_sub = rospy.Subscriber("/camera1/usb_cam1/image_raw/compressed",CompressedImage,self.topviewcallback,queue_size=1)#change this to proper name!
         self.CItop_sub = rospy.Subscriber("/camera1/usb_cam1/camera_info",CameraInfo,self.CIsidecallback,queue_size=1)
         self.imtop_pub = rospy.Publisher('/fishtracker/overlay_imtop',Image,queue_size=1)
+        
+        self.anglepub = rospy.Publisher("/fishtracker/measuredangle",Float32Stamped,queue_size=1)
+
         #placeholder for cam1 parameters
         self.CItop = CameraInfo()
         #placeholder for the ball row and column
@@ -83,6 +87,7 @@ class Measurefish:
 
         self.currenttopstamp = rospy.Time.now()
         self.currentsidestamp = rospy.Time.now()
+        self.angle = 0
         
         #timed loop that will generate two synced images
         rospy.Timer(rospy.Duration(0.1),self.triangulate,oneshot=False)
@@ -197,7 +202,7 @@ class Measurefish:
         else:
             return frame,array([])
 
-    def detectTopview(self,frame):
+    def detectTopview(self,frame,frameheader):
         # self.timenow = rospy.Time.now()
         #print frame.shape
         rows,cols,depth = frame.shape
@@ -226,7 +231,16 @@ class Measurefish:
                         #frame = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,0,255),2)
                         ellipse = cv2.fitEllipse(cnt)
                         cv2.ellipse(frame,ellipse,(0,255,0),2)
-                        print ellipse
+                        # ellipse2 = ((x-w/2+ellipse[0][0],y-h/2+ellipse[0][1]),(ellipse[1][0],ellipse[1][1]),ellipse[2])
+                        angle = -(ellipse[2]-90.0)
+                        self.angle =angle*pi/180.0
+
+                        anglemsg = Float32Stamped()
+                        anglemsg.header = frameheader
+                        anglemsg.data = angle
+                        self.anglepub.publish(anglemsg)
+
+                        
                         if rects is not None:
                             rects = np.vstack((rects,np.array([x,y,w+x,h+y])))
                             #print rects
@@ -253,6 +267,7 @@ class Measurefish:
         else:
             self.sidecounter=1
             self.currentsidestamp=data.header.stamp
+            # rospy.logwarn("side now "+str(self.currentsidestamp)+" was "+str(self.lastsidestamp))
             try:
                 np_arr = np.fromstring(data.data, np.uint8)
                 # Decode to cv2 image and store
@@ -274,11 +289,13 @@ class Measurefish:
     def topviewcallback(self,data):
         
         #print "in callback"
-        if self.topcounter>self.every:
+        if self.topcounter<self.every:
             self.topcounter+=1
         else:
             self.topcounter=1
             self.currenttopstamp = data.header.stamp
+            # rospy.logwarn("top now "+str(self.currenttopstamp)+" was "+str(self.lasttopstamp))
+
             try:
                 #use the np_arr thing if subscribing to compressed image
                 #frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
@@ -289,7 +306,7 @@ class Measurefish:
                 # cv2.waitKey(1)
                 if frame is not None:
                     #print "detecting 1"
-                    frametop_out,self.fishuvtop = self.detectTopview(frame)
+                    frametop_out,self.fishuvtop = self.detectTopview(frame,data.header)
                     #print "im1: "+str(self.balluv1)
                     img_out = self.bridge.cv2_to_imgmsg(frametop_out, "8UC3")
                     img_out.header.stamp = rospy.Time.now()
@@ -327,9 +344,10 @@ class Measurefish:
         self.CIside = data
 
     def triangulate(self,data):
-        #print "hello triangulate"
+        # rospy.logwarn("triangulating: sidelen = "+str(len(self.fishuvside))+" toplen: "+str(len(self.fishuvtop)))
         if((len(self.fishuvside)>0) and (len(self.fishuvtop)>0)):
-            if ( (self.currentsidestamp != self.lastsidestamp) and (self.currenttopstamp!=self.lasttopstamp)  ):
+            if (1):#( (self.currentsidestamp != self.lastsidestamp) and (self.currenttopstamp!=self.lasttopstamp)  ):
+
                 self.lasttopstamp = self.currenttopstamp
                 self.lastsidestamp = self.currentsidestamp
                 #print "triangulating!"
@@ -343,46 +361,50 @@ class Measurefish:
                 #to triangulate the position of the ball.
                 #print x1,x2
                 #print P1,P2
-                fishpos = cv2.triangulatePoints(P1, P2, self.fishuvtop.astype(float), self.fishuvside.astype(float))
-                fishpos/=fishpos[3]
-                #print ballpos
+                rospy.logwarn("broadcasting measured fish!")
+                try:
+                    fishpos = cv2.triangulatePoints(P1, P2, self.fishuvtop.astype(float), self.fishuvside.astype(float))
+                    fishpos/=fishpos[3]
+                    #print ballpos
 
-                #send transforms to show ball's coordinate system
-                br = tf.TransformBroadcaster()
-                fishquat = tf.transformations.quaternion_from_euler(0,0,0)
-                #I think the ball position needs to be inverted... why? Not sure but I think
-                #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
-                br.sendTransform(-fishpos[:,0],fishquat,rospy.Time.now(),'/fishmeasured','world')
+                    #send transforms to show ball's coordinate system
+                    br = tf.TransformBroadcaster()
+                    fishquat = tf.transformations.quaternion_from_euler(0,0,self.angle)
+                    #I think the ball position needs to be inverted... why? Not sure but I think
+                    #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
+                    br.sendTransform(-fishpos[:,0],fishquat,rospy.Time.now(),'/fishmeasured','world')
 
-                #create a marker
-                fishmarker = Marker()
-                fishmarker.header.frame_id='/fishmeasured'
-                fishmarker.header.stamp = rospy.Time.now()
-                fishmarker.type = fishmarker.SPHERE
-                fishmarker.action = fishmarker.MODIFY
-                fishmarker.scale.x = .12
-                fishmarker.scale.y = .12
-                fishmarker.scale.z = .12
-                fishmarker.pose.orientation.w=1
-                fishmarker.pose.orientation.x = 0
-                fishmarker.pose.orientation.y=0
-                fishmarker.pose.orientation.z=0
-                fishmarker.pose.position.x = 0
-                fishmarker.pose.position.y=0
-                fishmarker.pose.position.z=0
-                fishmarker.color.r=0.0
-                fishmarker.color.g=0
-                fishmarker.color.b=1.0
-                fishmarker.color.a=0.5
+                    #create a marker
+                    fishmarker = Marker()
+                    fishmarker.header.frame_id='/fishmeasured'
+                    fishmarker.header.stamp = rospy.Time.now()
+                    fishmarker.type = fishmarker.SPHERE
+                    fishmarker.action = fishmarker.MODIFY
+                    fishmarker.scale.x = .12
+                    fishmarker.scale.y = .12
+                    fishmarker.scale.z = .12
+                    fishmarker.pose.orientation.w=1
+                    fishmarker.pose.orientation.x = 0
+                    fishmarker.pose.orientation.y=0
+                    fishmarker.pose.orientation.z=0
+                    fishmarker.pose.position.x = 0
+                    fishmarker.pose.position.y=0
+                    fishmarker.pose.position.z=0
+                    fishmarker.color.r=0.0
+                    fishmarker.color.g=0
+                    fishmarker.color.b=1.0
+                    fishmarker.color.a=0.5
 
-                self.markerpub.publish(fishmarker)
+                    self.markerpub.publish(fishmarker)
 
-                posemsg = PoseStamped()
-                posemsg.header.stamp = rospy.Time.now()
-                posemsg.pose.position.x = 0.-fishpos[0,0]
-                posemsg.pose.position.y = 0.-fishpos[1,0]
-                posemsg.pose.position.z = 0.-fishpos[2,0]
-                self.posepub.publish(posemsg)
+                    posemsg = PoseStamped()
+                    posemsg.header.stamp = rospy.Time.now()
+                    posemsg.pose.position.x = 0.-fishpos[0,0]
+                    posemsg.pose.position.y = 0.-fishpos[1,0]
+                    posemsg.pose.position.z = 0.-fishpos[2,0]
+                    self.posepub.publish(posemsg)
+                except:
+                    rospy.logwarn("triangulation failed")
 
 
 def main(args):
