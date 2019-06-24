@@ -151,8 +151,8 @@ class measure_fish:
                         cv2.imwrite(self.image_directory+self.bagchop+'_'+cropfile,crop)
 
                 if self.drawing==True:
-                    self.f.write(str(data.header.stamp)+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
-                    self.anglef.write(str(data.header.stamp)+'\t'+str(data.header.seq)+'\t'+str(self.detectedangle)+'\r\n')
+                    self.f.write(str(rospy.get_time())+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
+                    self.anglef.write(str(rospy.get_time())+'\t'+str(data.header.seq)+'\t'+str(self.detectedangle)+'\r\n')
 
             cv2.imshow('fish',frame)
             cv2.waitKey(1)

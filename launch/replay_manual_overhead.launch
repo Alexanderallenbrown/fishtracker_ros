@@ -5,7 +5,7 @@ example: roslaunch fishtracker replay_manual_overhead.launch bag:=onefish_2019-0
 
 you set the bag file name, and the working directory name (which must be the same as the directory the bag file is in). you also set the fish number (not the number of fish) that you are tracking. For instance, in a two-fish experiment, I would set this to "2" to track the second fish. Once the video shows up, hold your mouse button down on the opencv window and follow the fish! A text file will pop up, and so will a directory of images that represent the current fish in the current frame (for image classification development later) -->
 
-<param name="use_sim_time" value="true" />
+<!-- <param name="use_sim_time" value="true" /> -->
 <arg name="bag" default="default.bag"/>
 <param name="/bag" value="$(arg bag)"/>
 <arg name="dir"/>
@@ -17,7 +17,7 @@ you set the bag file name, and the working directory name (which must be the sam
 
   <node name="fish_image_node_overhead" pkg = "fishtracker" type = "manual_fish_node_overhead.py" respawn = "true" output = "screen">
   </node>
-  <node name="playback" pkg = "rosbag" type="play" args=" $(arg dir)/$(arg bag)"/>
+  <node name="playback" pkg = "rosbag" type="play" args=" $(arg dir)/$(arg bag) --clock"/>
 
 
 

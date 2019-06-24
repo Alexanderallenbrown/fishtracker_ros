@@ -95,7 +95,7 @@ class measure_fish:
             if self.manx is not None:
                 # pass
                 if self.drawing==True:
-                    self.f.write(str(now)+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
+                    self.f.write(str(rospy.get_time())+'\t'+str(data.header.seq)+'\t'+str(self.manx)+'\t'+str(self.many)+'\r\n')
                 cv2.rectangle(frame,(self.manx-self.manrect/2,self.many-self.manrect/2),(self.manx+self.manrect/2,self.many+self.manrect/2),(0,255,0),1)
                 cv2.circle(frame,(self.manx,self.many),self.mandia,(0,255,0),1)
 

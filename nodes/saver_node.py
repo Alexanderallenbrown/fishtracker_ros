@@ -49,13 +49,13 @@ class Saver:
         self.kalmansub = rospy.Subscriber("/fishtracker/kalmanfishpose",PoseStamped,self.kalmansub,queue_size=1)
 
     def anglecallback(self,data):
-        self.anglef.write(str(data.header.stamp)+"\t"+str(data.header.seq)+"\t"+str(data.data)+"\r\n")
+        self.anglef.write(str(rospy.get_time())+"\t"+str(data.header.seq)+"\t"+str(data.data)+"\r\n")
 
     def measuredsub(self,data):
-        self.measuredf.write(str(data.header.stamp)+"\t"+str(data.pose.position.x)+"\t"+str(data.pose.position.y)+"\t"+str(data.pose.position.z)+"\r\n")
+        self.measuredf.write(str(rospy.get_time())+"\t"+str(data.pose.position.x)+"\t"+str(data.pose.position.y)+"\t"+str(data.pose.position.z)+"\r\n")
 
     def kalmansub(self,data):
-        self.kalmanf.write(str(data.header.stamp)+"\t"+str(data.pose.position.x)+"\t"+str(data.pose.position.y)+"\t"+str(data.pose.position.z)+"\r\n")
+        self.kalmanf.write(str(rospy.get_time())+"\t"+str(data.pose.position.x)+"\t"+str(data.pose.position.y)+"\t"+str(data.pose.position.z)+"\r\n")
 
 def main(args):
   
