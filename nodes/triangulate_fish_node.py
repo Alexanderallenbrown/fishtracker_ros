@@ -4,7 +4,7 @@
 #2018
 
 import roslib
-roslib.load_manifest('triangulation_test')
+roslib.load_manifest('fishtracker')
 import sys
 import rospy
 #from cv2 import cv

@@ -28,7 +28,8 @@
     <param name="autosize" value="true" />
   </node>
  </group>
-
- <node pkg="rosbag" type="record" name="rosbag_record_cam"
-       args="record -o /home/michael-brown2/Desktop/twofish_bags/twofish /camera2/usb_cam2/image_raw/compressed /camera1/usb_cam1/image_raw/compressed  --split --duration=10m" />
-</launch>
+ 
+  <node pkg="rosbag" type="record" name="rosbag_record_cam"
+       args="record -o /home/michael-brown2/Desktop/fish_bags_sum2019/justfish/ /camera2/usb_cam2/image_raw/compressed /camera1/usb_cam1/image_raw/compressed  --split --duration=10m" />
+  
+ </launch>
