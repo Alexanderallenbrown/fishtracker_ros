@@ -60,17 +60,6 @@ class Measurefish:
         #placeholder for the ball row and column
         self.fishuvside = array([0,0])
 
-        #pub and sub for camera 2
-        self.imtop_sub = rospy.Subscriber("/camera1/usb_cam1/image_raw/compressed",CompressedImage,self.topviewcallback,queue_size=1)#change this to proper name!
-        self.CItop_sub = rospy.Subscriber("/camera1/usb_cam1/camera_info",CameraInfo,self.CIsidecallback,queue_size=1)
-        self.imtop_pub = rospy.Publisher('/fishtracker/top/overlay_imtop',Image,queue_size=1)
-        
-        self.anglepub = rospy.Publisher("/fishtracker/measuredangle",Float32Stamped,queue_size=1)
-
-        #placeholder for cam1 parameters
-        self.CItop = CameraInfo()
-        #placeholder for the ball row and column
-        self.fishuvtop = array([0,0])
 
         #ball marker publisher
         self.markerpub = rospy.Publisher('/measured_fish',Marker,queue_size=1)
@@ -202,62 +191,6 @@ class Measurefish:
         else:
             return frame,array([])
 
-    def detectTopview(self,frame,frameheader):
-        # self.timenow = rospy.Time.now()
-        #print frame.shape
-        rows,cols,depth = frame.shape
-
-        rects = None
-        rectsout = None
-        if rows>0:
-            gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            fgmask = self.fgbg.apply(gray)
-            canny = cv2.Canny(fgmask,100,200)
-            canny = cv2.dilate(canny,self.kernel,iterations=1)
-            cannycolor = cv2.cvtColor(canny,cv2.COLOR_GRAY2BGR)
-
-            im,contours,hier = cv2.findContours(canny.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)          
-            
-            if(len(contours)>0):
-                cv2.drawContours(cannycolor,contours,-1,(0,255,0),5)
-                for k in range(0,len(contours)):
-                    cnt = contours[k]
-                    #print cnt.shape
-                    #print cnt
-                    x,y,w,h = cv2.boundingRect(array(cnt))
-                    #print x,y,w,h
-                    if ((w<self.maxw) and (w>self.minw) and (h<self.maxh) and (h>self.minh)):
-                        #print k,x,y,w,h
-                        #frame = cv2.rectangle(frame,(x,y),(x+w,y+h),(0,0,255),2)
-                        ellipse = cv2.fitEllipse(cnt)
-                        cv2.ellipse(frame,ellipse,(0,255,0),2)
-                        # ellipse2 = ((x-w/2+ellipse[0][0],y-h/2+ellipse[0][1]),(ellipse[1][0],ellipse[1][1]),ellipse[2])
-                        angle = -(ellipse[2]-90.0)
-                        self.angle =angle*pi/180.0
-
-                        anglemsg = Float32Stamped()
-                        anglemsg.header = frameheader
-                        anglemsg.data = angle
-                        self.anglepub.publish(anglemsg)
-
-                        
-                        if rects is not None:
-                            rects = np.vstack((rects,np.array([x,y,w+x,h+y])))
-                            #print rects
-                        else:
-                            rects = np.array([[x,y,w+x,h+y]])
-            
-            #print rects
-            if rects is not None:
-                rectsout = self.cleanRects(rects)
-                #print rects.shape
-                self.box(rectsout,frame)
-                
-            if rectsout is not None:
-                return frame,array([(rectsout[0,0]+rectsout[0,2])/2,(rectsout[0,1]+rectsout[0,3])/2])
-            else:
-                return frame,array([])
-
 
     #this function fires whenever a new image_raw is available. it is our "main loop"
     def sideviewcallback(self,data):
@@ -287,87 +220,50 @@ class Measurefish:
             except CvBridgeError as e:
                 print(e)
 
-    def topviewcallback(self,data):
-        
-        #print "in callback"
-        if self.topcounter<self.every:
-            self.topcounter+=1
-        else:
-            self.topcounter=1
-            self.currenttopstamp = data.header.stamp
-            # rospy.logwarn("top now "+str(self.currenttopstamp)+" was "+str(self.lasttopstamp))
-
-            try:
-                #use the np_arr thing if subscribing to compressed image
-                #frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
-                np_arr = np.fromstring(data.data, np.uint8)
-                # Decode to cv2 image and store
-                frame= cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-                # cv2.imshow("top",frame)
-                # cv2.waitKey(1)
-                if frame is not None:
-                    #print "detecting 1"
-                    frametop_out,self.fishuvtop = self.detectTopview(frame,data.header)
-                    #print "im1: "+str(self.balluv1)
-
-                    img_out = self.bridge.cv2_to_imgmsg(frametop_out, "8UC3")
-                    img_out.header.frame_id = '/camera1'
-                    img_out.header.stamp = rospy.Time.now()
-                    self.imtop_pub.publish(img_out)
-
-                else:
-                    print "frame is none"
-            except CvBridgeError,e:
-                print e
-
-    def genericcallback(self,data):
-        try:
-            frame = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            #if image topic is compressed, use following two lines instead
-            # np_arr = fromstring(data.data,uint8)
-            # frame = cv2.imdecode(np_arr,cv2.IMREAD_COLOR)
-            if frame is not None:
-                #print "detecting 1"
-                frame1_out,self.balluv1 = self.detectGeneric(frame,'cam1')
-                #print "im1: "+str(self.balluv1)
-                img_out = self.bridge.cv2_to_imgmsg(frame1_out, "bgr8")
-                img_out.header.stamp = rospy.Time.now()
-                self.im1_pub.publish(img_out)
-
-            else:
-                print "frame is none"
-        except CvBridgeError,e:
-            print e
-
-    def CItopcallback(self,data):
-        self.CItop = data
-        #print self.CI1.P
-
     def CIsidecallback(self,data):
         self.CIside = data
 
+    def Unproject(self,points, Z, intrinsic, distortion):
+        f_x = intrinsic[0, 0]
+        f_y = intrinsic[1, 1]
+        c_x = intrinsic[0, 2]
+        c_y = intrinsic[1, 2]
+        # This was an error before
+        # c_x = intrinsic[0, 3]
+        # c_y = intrinsic[1, 3]
+
+        # Step 1. Undistort.
+        points_undistorted = np.array([])
+        if len(points) > 0:
+            points_undistorted = cv2.undistortPoints(np.expand_dims(points, axis=1), intrinsic, distortion, P=intrinsic)
+        points_undistorted = np.squeeze(points_undistorted, axis=1)
+
+        # Step 2. Reproject.
+        result = []
+        for idx in range(points_undistorted.shape[0]):
+            z = Z[0] if len(Z) == 1 else Z[idx]
+            x = (points_undistorted[idx, 0] - c_x) / f_x * z
+            y = (points_undistorted[idx, 1] - c_y) / f_y * z
+            result.append([x, y, z])
+        return result
+
+
     def triangulate(self,data):
         # rospy.logwarn("triangulating: sidelen = "+str(len(self.fishuvside))+" toplen: "+str(len(self.fishuvtop)))
-        if((len(self.fishuvside)>0) and (len(self.fishuvtop)>0)):
+        if((len(self.fishuvside)>0):
             if (1):#( (self.currentsidestamp != self.lastsidestamp) and (self.currenttopstamp!=self.lasttopstamp)  ):
-
-                self.lasttopstamp = self.currenttopstamp
                 self.lastsidestamp = self.currentsidestamp
                 #print "triangulating!"
-                P1 = array([self.CItop.P]).reshape(3,4)
+                D2 = array([0.0, 0.0, 0.0, 0.0])  # This works!
+
                 P2 = array([self.CIside.P]).reshape(3,4)
-                x1 = vstack(self.fishuvtop)
-                x1 = vstack((x1,1))
                 x2 = vstack(self.fishuvside)
                 x2 = vstack((x2,1))
-                #use the camera information and the current guess for the u,v
-                #to triangulate the position of the ball.
-                #print x1,x2
-                #print P1,P2
+                #use the camera information and an estimate of fish plane depth to unproject
                 rospy.logwarn("broadcasting measured fish!")
                 try:
-                    fishpos = cv2.triangulatePoints(P1, P2, self.fishuvtop.astype(float), self.fishuvside.astype(float))
-                    fishpos/=fishpos[3]
+                    fishpos = self.unproject(x2,0.5,P2,D2)
+                    # fishpos/=fishpos[3]
                     #print ballpos
 
                     #send transforms to show ball's coordinate system

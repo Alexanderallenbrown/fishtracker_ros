@@ -98,6 +98,10 @@ class Cams:
         # self.im2_pub = rospy.Publisher("/cam2/image_raw",Image,queue_size=5)
         self.cam2infopub = rospy.Publisher("/camera1/usb_cam1/camera_info",CameraInfo,queue_size=5)
         self.cam1infopub = rospy.Publisher("/camera2/usb_cam2/camera_info",CameraInfo,queue_size=5)
+
+        self.cam2oinfopub = rospy.Publisher("/fishtracker/side/camera_info",CameraInfo,queue_size=5)
+        # self.cam1oinfopub = rospy.Publisher("/fishtracker/camera_info",CameraInfo,queue_size=5)
+
         rospack = rospkg.RosPack()
         self.package_path=rospack.get_path('fishtracker')
         self.meshpath = self.package_path+'/meshes/camera_rig.dae'
@@ -134,6 +138,7 @@ class Cams:
 
         self.cam1infopub.publish(CI2)
         self.cam2infopub.publish(CI1)
+        self.cam2oinfopub.publish(CI1)
 
         #marker showing tank
         #publish a marker representing the fish body position
