@@ -53,7 +53,7 @@ class Measurefish:
 
         #pub and sub for camera 1
         self.imside_sub = rospy.Subscriber("/camera2/usb_cam2/image_raw/compressed",CompressedImage,self.sideviewcallback,queue_size=1)#change this to proper name!
-        self.CIside_sub = rospy.Subscriber("/camera2/usb_cam2/camera_info",CameraInfo,self.CItopcallback,queue_size=1)
+        self.CIside_sub = rospy.Subscriber("/camera2/usb_cam2/camera_info",CameraInfo,self.CIsidecallback,queue_size=1)
         self.imside_pub = rospy.Publisher('/fishtracker/side/overlay_imside',Image,queue_size=1)
         #placeholder for cam1 parameters
         self.CIside = CameraInfo()
@@ -233,10 +233,10 @@ class Measurefish:
         # c_y = intrinsic[1, 3]
 
         # Step 1. Undistort.
-        points_undistorted = np.array([])
-        if len(points) > 0:
-            points_undistorted = cv2.undistortPoints(np.expand_dims(points, axis=1), intrinsic, distortion, P=intrinsic)
-        points_undistorted = np.squeeze(points_undistorted, axis=1)
+        points_undistorted = array([points])#np.array([])
+        # if len(points) > 0:
+            # points_undistorted = cv2.undistortPoints(np.expand_dims(points, axis=1), intrinsic, distortion, P=intrinsic)
+        # points_undistorted = np.squeeze(points_undistorted, axis=1)
 
         # Step 2. Reproject.
         result = []
@@ -250,19 +250,22 @@ class Measurefish:
 
     def triangulate(self,data):
         # rospy.logwarn("triangulating: sidelen = "+str(len(self.fishuvside))+" toplen: "+str(len(self.fishuvtop)))
-        if((len(self.fishuvside)>0):
+        if((len(self.fishuvside)>0)):
             if (1):#( (self.currentsidestamp != self.lastsidestamp) and (self.currenttopstamp!=self.lasttopstamp)  ):
                 self.lastsidestamp = self.currentsidestamp
                 #print "triangulating!"
                 D2 = array([0.0, 0.0, 0.0, 0.0])  # This works!
 
-                P2 = array([self.CIside.P]).reshape(3,4)
-                x2 = vstack(self.fishuvside)
-                x2 = vstack((x2,1))
+                K2 = array([self.CIside.K]).reshape(3,3)
+                x2 = self.fishuvside#vstack(self.fishuvside)
+                # x2 = vstack((x2,1))
                 #use the camera information and an estimate of fish plane depth to unproject
                 rospy.logwarn("broadcasting measured fish!")
-                try:
-                    fishpos = self.unproject(x2,0.5,P2,D2)
+                # try:
+                if 1:
+                    fishpos = self.Unproject(x2,array([1.0]),K2,D2)
+                    fishpos = fishpos[0]
+                    rospy.logwarn(fishpos)
                     # fishpos/=fishpos[3]
                     #print ballpos
 
@@ -271,7 +274,7 @@ class Measurefish:
                     fishquat = tf.transformations.quaternion_from_euler(0,0,self.angle)
                     #I think the ball position needs to be inverted... why? Not sure but I think
                     #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
-                    br.sendTransform(-fishpos[:,0],fishquat,rospy.Time.now(),'/fishmeasured','world')
+                    br.sendTransform([fishpos[0],fishpos[1],fishpos[2]],fishquat,rospy.Time.now(),'/fishmeasured','camera2')
 
                     #create a marker
                     fishmarker = Marker()
@@ -298,12 +301,12 @@ class Measurefish:
 
                     posemsg = PoseStamped()
                     posemsg.header.stamp = rospy.Time.now()
-                    posemsg.pose.position.x = 0.-fishpos[0,0]
-                    posemsg.pose.position.y = 0.-fishpos[1,0]
-                    posemsg.pose.position.z = 0.-fishpos[2,0]
+                    posemsg.pose.position.x = 0.-fishpos[0]
+                    posemsg.pose.position.y = 0.-fishpos[1]
+                    posemsg.pose.position.z = 0.-fishpos[2]
                     self.posepub.publish(posemsg)
-                except:
-                    rospy.logwarn("triangulation failed")
+                #except:
+                #    rospy.logwarn("triangulation failed")
 
 
 def main(args):
