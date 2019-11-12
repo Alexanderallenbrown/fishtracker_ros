@@ -22,10 +22,10 @@ import cv2
 # from cv2 import cv
 import tf
 import rospkg
-from skimage import data, color, img_as_ubyte
-from skimage.feature import canny
-from skimage.transform import hough_ellipse
-from skimage.draw import ellipse_perimeter
+# from skimage import data, color, img_as_ubyte
+# from skimage.feature import canny
+# from skimage.transform import hough_ellipse
+# from skimage.draw import ellipse_perimeter
 
 class Measurefish:
 
@@ -34,7 +34,7 @@ class Measurefish:
         self.bridge = CvBridge()
         
         #side view detection specific
-        self.svminx,self.svmaxx,self.svminy,self.svmaxy = rospy.get_param('svminx',220),rospy.get_param('svmaxx',1100),rospy.get_param('svminy',230),rospy.get_param('svmaxy',370)
+        self.svminx,self.svmaxx,self.svminy,self.svmaxy = rospy.get_param('svminx',220),rospy.get_param('svmaxx',1100),rospy.get_param('svminy',230),rospy.get_param('svmaxy',370+140)
         rospack = rospkg.RosPack()
         self.package_path=rospack.get_path('fishtracker')
         #this is how we get our image in to use openCV
@@ -53,8 +53,10 @@ class Measurefish:
 
         #pub and sub for camera 1
         self.imside_sub = rospy.Subscriber("/camera2/usb_cam2/image_raw/compressed",CompressedImage,self.sideviewcallback,queue_size=1)#change this to proper name!
+
         self.CIside_sub = rospy.Subscriber("/camera2/usb_cam2/camera_info",CameraInfo,self.CIsidecallback,queue_size=1)
         self.imside_pub = rospy.Publisher('/fishtracker/side/overlay_imside',Image,queue_size=1)
+        self.compressed_pub = rospy.Publisher('/fishtracker/side/overlay_imside_compressed',CompressedImage,queue_size=1)
         #placeholder for cam1 parameters
         self.CIside = CameraInfo()
         #placeholder for the ball row and column
@@ -134,7 +136,7 @@ class Measurefish:
         img = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
             # frame = cv2.resize(frame,None,fx=self.imscale, fy=self.imscale, interpolation = cv2.INTER_CUBIC)
         
-        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=7,  minSize=(1,1),maxSize=(70,100),flags=cv2.CASCADE_SCALE_IMAGE)
+        rects = self.cascade.detectMultiScale(img, scaleFactor=1.01, minNeighbors=13,  minSize=(20,40),maxSize=(70,100),flags=cv2.CASCADE_SCALE_IMAGE)
         if(len(rects))>0:
             rects2=self.cleanRects(rects)
             # rects3= rects2
@@ -215,6 +217,12 @@ class Measurefish:
                     img_out.header.stamp = rospy.Time.now()
                     img_out.header.frame_id = '/camera2'
                     self.imside_pub.publish(img_out)
+
+                    msg = CompressedImage()
+                    msg.header.stamp = rospy.Time.now()
+                    msg.format = "jpeg"
+                    msg.data = np.array(cv2.imencode('.jpg', frameside_out)[1]).tostring()
+                    self.compressed_pub.publish(msg)
                 else:
                     print "side frame is none"
             except CvBridgeError as e:
@@ -274,8 +282,13 @@ class Measurefish:
                     fishquat = tf.transformations.quaternion_from_euler(0,0,self.angle)
                     #I think the ball position needs to be inverted... why? Not sure but I think
                     #it may be because there is a confusion in the T matrix between camera->object vs. object->camera
-                    br.sendTransform([fishpos[0],fishpos[1],fishpos[2]],fishquat,rospy.Time.now(),'/fishmeasured','camera2')
-
+                    if not isnan(fishpos).any(): 
+                        if not isinf(fishpos).any():
+                            br.sendTransform([fishpos[0],fishpos[1],fishpos[2]],fishquat,rospy.Time.now(),'/fishmeasured','camera2')
+                        else:
+                            rospy.logerr("FISH PISITION INFINITE")
+                    else:
+                        rospy.logerr("FISH POSITION IS NAN")
                     #create a marker
                     fishmarker = Marker()
                     fishmarker.header.frame_id='/fishmeasured'
